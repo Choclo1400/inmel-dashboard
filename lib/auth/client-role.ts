@@ -1,8 +1,7 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/client'
 
-export async function getSessionUserWithRole() {
-  const supabase = await createClient()
+export async function getClientUserWithRole() {
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { user: null, role: null, isActive: false }
 

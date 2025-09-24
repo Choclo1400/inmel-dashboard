@@ -2,6 +2,7 @@
 import { getSessionUserWithRole } from '@/lib/auth/role'
 import { roleHome } from '@/config/nav'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -30,16 +31,16 @@ export default async function HomePage() {
               </p>
 
               <div className="space-y-3">
-                <Button onClick={() => router.push("/auth/login")} className="w-full bg-blue-600 hover:bg-blue-700">
-                  Iniciar Sesión
+                <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
+                  <Link href="/auth/login">Iniciar Sesión</Link>
                 </Button>
 
                 <Button
-                  onClick={() => router.push("/auth/register")}
+                  asChild
                   variant="outline"
                   className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
                 >
-                  Registrarse
+                  <Link href="/auth/register">Registrarse</Link>
                 </Button>
               </div>
             </CardContent>

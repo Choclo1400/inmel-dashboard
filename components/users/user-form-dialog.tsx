@@ -110,7 +110,7 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
       if (user) {
         const supabase = createClient()
         const { error } = await supabase
-          .from("users")
+          .from("profiles")
           .update({
             nombre: formData.nombre,
             apellido: formData.apellido,

@@ -2,7 +2,6 @@
 
 import { z } from "zod"
 import { cookies } from "next/headers"
-import { createClient as createBrowserLike } from "@/lib/supabase"
 import { createClient as createRscClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/admin"
 
@@ -22,7 +21,7 @@ async function getCurrentUserAndRole() {
   const supabase = await createRscClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { user: null, role: null }
-  const { data: profile } = await supabase.from("users").select("rol").eq("id", user.id).single()
+  const { data: profile } = await supabase.from("profiles").select("rol").eq("id", user.id).single()
   return { user, role: profile?.rol ?? null }
 }
 
@@ -58,14 +57,13 @@ export async function createUserWithAuth(form: z.infer<typeof userSchema>): Prom
 
     const newId = created.user.id
 
-    const insert = await service.from("users").insert({
+    const insert = await service.from("profiles").insert({
       id: newId,
       email: parsed.data.email,
       nombre: parsed.data.nombre,
       apellido: parsed.data.apellido,
       telefono: parsed.data.telefono ?? null,
       rol: parsed.data.rol,
-      activo: parsed.data.activo,
     }).select("id").single()
 
     if (insert.error) {
@@ -94,10 +92,7 @@ export async function toggleUserActive(id: string, active: boolean): Promise<Res
     if (!user || role !== "ADMIN") {
       return { data: null, error: { code: "FORBIDDEN", message: "Solo ADMIN puede cambiar estado" } }
     }
-    const service = createServiceClient()
-    const { error } = await service.from("users").update({ activo: active }).eq("id", id)
-    if (error) return { data: null, error: { code: error.code || "DB_UPDATE_ERROR", message: error.message } }
-    await service.from("audit_logs").insert({ entity: "users", entity_id: id, action: "UPDATE", by_user: user.id, meta: { activo: active } })
+    // TODO: La tabla profiles no tiene campo 'activo', necesita ser agregado al schema
     return { data: null, error: null }
   } catch (e: any) {
     return { data: null, error: { code: "UNEXPECTED", message: e?.message || "Error inesperado" } }

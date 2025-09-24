@@ -18,7 +18,7 @@ export default function ProgramacionesPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Programaciones</h1>
-        <Can roles={["GESTOR"]}>
+        <Can roles={["manager"]}>
           <Button variant="default" size="sm">
             <Plus className="w-4 h-4 mr-2" /> Nueva Programación
           </Button>

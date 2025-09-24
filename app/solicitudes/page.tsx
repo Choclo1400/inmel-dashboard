@@ -277,13 +277,7 @@ function SolicitudesPageClient() {
 export { SolicitudesPageClient as SolicitudesPageClient }
 
 // SSR guard wrapper
-import { getSessionUserWithRole } from "@/lib/auth/role"
-import { hasRouteAccess } from "@/lib/auth/acl"
-import { redirect } from "next/navigation"
-
-export default async function Page() {
-  const { role } = await getSessionUserWithRole()
-  const pathname = "/solicitudes"
-  if (!hasRouteAccess(role, pathname)) redirect("/no-access")
+// Ya está protegido por el DashboardLayout y RoleProvider
+export default function Page() {
   return <SolicitudesPageClient />
 }

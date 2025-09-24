@@ -35,7 +35,7 @@ export default function UserDeleteDialog({ open, onOpenChange, user, onSuccess }
 
       // Soft delete - just mark as inactive
       const { error } = await supabase
-        .from("users")
+        .from("profiles")
         .update({
           activo: false,
           updated_at: new Date().toISOString(),

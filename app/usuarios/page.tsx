@@ -40,7 +40,7 @@ export default function UsuariosPage() {
   const loadUsers = async () => {
     try {
       const supabase = createClient()
-      const { data, error } = await supabase.from("users").select("*").order("created_at", { ascending: false })
+      const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false })
 
       if (error) {
         console.error("Error querying users table, trying profiles fallback:", error)

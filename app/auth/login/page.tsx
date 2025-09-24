@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { roleHome } from "@/config/nav"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -30,7 +31,33 @@ export default function LoginPage() {
         password,
       })
       if (error) throw error
-      router.push("/dashboard")
+      
+      // Obtener el usuario actual
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("No se pudo obtener el usuario")
+
+      // Obtener el rol del usuario desde la base de datos
+      const { data: perfil } = await supabase
+        .from('profiles')
+        .select('rol')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (!perfil) {
+        throw new Error("Usuario no encontrado")
+      }
+
+      // Normalizar el rol
+      const raw = (perfil?.rol ?? '').toString().toLowerCase()
+      let role = raw
+      if (raw === 'administrador') role = 'admin'
+      else if (raw === 'gestor') role = 'manager'
+      else if (raw === 'técnico' || raw === 'tecnico') role = 'technician'
+
+      // Redirigir al dashboard correspondiente
+      const dashboardUrl = roleHome(role as any)
+      window.location.href = dashboardUrl
+      
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Error al iniciar sesión")
     } finally {

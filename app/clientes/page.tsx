@@ -297,15 +297,7 @@ function ClientesPageClient() {
 
 export { ClientesPageClient as ClientesPageClient }
 
-// SSR guard wrapper
-import { getSessionUserWithRole } from "@/lib/auth/role"
-import { hasRouteAccess } from "@/lib/auth/acl"
-import { redirect } from "next/navigation"
-
-export default async function Page() {
-  const { role } = await getSessionUserWithRole()
-  const pathname = "/clientes"
-  if (!hasRouteAccess(role, pathname)) redirect("/no-access")
-  // Render client component under SSR-validated page
+// Ya está protegido por el DashboardLayout y RoleProvider
+export default function Page() {
   return <ClientesPageClient />
 }

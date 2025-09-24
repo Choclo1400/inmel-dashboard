@@ -1,4 +1,4 @@
-import { createClient } from "./supabase"
+import { createClient } from "./supabase/client"
 import type { User, ServiceRequest, Notification } from "./types"
 
 const supabase = createClient()

@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react'
 import AppSidebar from './app-sidebar'
 import AppHeader from './app-header'
 import { Toaster } from '@/components/ui/toaster'
+import { RoleProvider } from '@/components/rbac/RoleProvider'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -20,6 +21,7 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   // Memoiza el cliente Supabase para no recrearlo en cada render
   const supabase = useMemo(() => {
@@ -66,12 +68,21 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
         // Si aún no hay rol, intentar desde tabla `users` (admin create path)
         if (!rol) {
           try {
-            const { data: userRow } = await supabase.from('users').select('rol').eq('id', rawUser.id).single()
+            const { data: userRow } = await supabase.from('profiles').select('rol').eq('id', rawUser.id).single()
             rol = (userRow as any)?.rol
           } catch {
             // ignore
           }
         }
+
+        // Normalizar el rol igual que en lib/auth/role.ts
+        const raw = (rol ?? '').toString().toLowerCase()
+        let normalizedRole = raw
+        if (raw === 'administrador') normalizedRole = 'admin'
+        else if (raw === 'gestor') normalizedRole = 'manager'
+        else if (raw === 'técnico' || raw === 'tecnico') normalizedRole = 'technician'
+        else if (raw === 'empleado') normalizedRole = 'operator'
+        else if (raw === 'supervisor') normalizedRole = 'supervisor'
 
         // Attach role into user.user_metadata for consistent access across app
         const enhancedUser: User = {
@@ -82,7 +93,10 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
           },
         } as User
 
-        if (mounted) setUser(enhancedUser)
+        if (mounted) {
+          setUser(enhancedUser)
+          setUserRole(normalizedRole || null)
+        }
       } catch (err) {
         console.error('[dashboard-layout] Error checking user:', err)
         if (mounted) router.replace('/auth/login')
@@ -121,17 +135,19 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      <AppSidebar user={user} />
+    <RoleProvider value={{ role: userRole as any, userId: user.id }}>
+      <div className="min-h-screen bg-slate-900 text-white">
+        <AppSidebar user={user} />
 
-      {/* Main Content */}
-      <div className="ml-64 min-h-screen">
-        <AppHeader title={title} subtitle={subtitle} user={user} />
+        {/* Main Content */}
+        <div className="ml-64 min-h-screen">
+          <AppHeader title={title} subtitle={subtitle} user={user} />
 
-        {/* Page Content */}
-        <main className="p-8">{children}</main>
+          {/* Page Content */}
+          <main className="p-8">{children}</main>
+        </div>
+        <Toaster />
       </div>
-      <Toaster />
-    </div>
+    </RoleProvider>
   )
 }

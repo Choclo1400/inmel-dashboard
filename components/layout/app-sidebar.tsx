@@ -27,9 +27,8 @@ export default function AppSidebar({ user }: Props) {
   }
 
   const visibleItems = useMemo(() => {
-    const r = (role ?? '').toLowerCase()
-    if (!r) return []
-    return NAV_ITEMS.filter((i) => i.roles.includes(r as any))
+    if (!role) return []
+    return NAV_ITEMS.filter((i) => i.roles.includes(role))
   }, [role])
 
   const email = user?.email ?? ""
