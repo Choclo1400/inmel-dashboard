@@ -34,9 +34,8 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSuccess
     email: client?.email || "",
     phone: client?.phone || "",
     address: client?.address || "",
-    type: client?.type || "Empresa",
+    type: client?.type || "company",
     status: client?.status || "Activo",
-    notes: client?.notes || "",
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -78,9 +77,8 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSuccess
         email: "",
         phone: "",
         address: "",
-        type: "Empresa",
+        type: "company",
         status: "Activo",
-        notes: "",
       })
     } catch (error: any) {
       setError(error.message || "Error al guardar el cliente")
@@ -161,13 +159,13 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSuccess
             </div>
             <div className="space-y-2">
               <Label htmlFor="type">Tipo</Label>
-              <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
-                <SelectTrigger className="bg-slate-700 border-slate-600">
-                  <SelectValue />
+                            <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value as "individual" | "company" })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tipo de cliente" />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-700 border-slate-600">
-                  <SelectItem value="Empresa">Empresa</SelectItem>
-                  <SelectItem value="Particular">Particular</SelectItem>
+                <SelectContent>
+                  <SelectItem value="company">Empresa</SelectItem>
+                  <SelectItem value="individual">Persona</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -185,11 +183,11 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSuccess
 
           <div className="space-y-2">
             <Label htmlFor="status">Estado</Label>
-            <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-              <SelectTrigger className="bg-slate-700 border-slate-600">
-                <SelectValue />
+            <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as "Activo" | "Inactivo" | "Suspendido" })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Estado" />
               </SelectTrigger>
-              <SelectContent className="bg-slate-700 border-slate-600">
+              <SelectContent>
                 <SelectItem value="Activo">Activo</SelectItem>
                 <SelectItem value="Inactivo">Inactivo</SelectItem>
                 <SelectItem value="Suspendido">Suspendido</SelectItem>
@@ -197,16 +195,7 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSuccess
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notas</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="bg-slate-700 border-slate-600"
-              rows={3}
-            />
-          </div>
+
 
           {error && (
             <div className="text-red-400 text-sm bg-red-900/20 p-3 rounded-md border border-red-800">{error}</div>

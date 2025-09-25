@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Plus, MoreHorizontal, Edit, Trash2, Phone, Mail, MapPin, Building } from "lucide-react"
+import { Search, Plus, MoreHorizontal, Edit, Trash2, Phone, Mail, MapPin, Building, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,6 +13,9 @@ import DashboardLayout from "@/components/layout/dashboard-layout"
 import { createClient } from "@/lib/supabase/client"
 import ClientFormDialog from "@/components/clients/client-form-dialog"
 import ClientDeleteDialog from "@/components/clients/client-delete-dialog"
+import ServiceRequestDialog from "@/components/scheduling/service-request-dialog"
+import { ClientsPermission } from "@/components/rbac/PermissionGuard"
+import { usePermissions } from "@/hooks/use-permissions"
 import type { Client } from "@/lib/types"
 
 const getStatusBadge = (status: string) => {
@@ -37,7 +40,9 @@ function ClientesPageClient() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showRequestDialog, setShowRequestDialog] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [selectedClientForRequest, setSelectedClientForRequest] = useState<Client | null>(null)
 
   const loadClients = async () => {
     try {
@@ -80,6 +85,11 @@ function ClientesPageClient() {
     setShowDeleteDialog(true)
   }
 
+  const handleCreateRequest = (client: Client) => {
+    setSelectedClientForRequest(client)
+    setShowRequestDialog(true)
+  }
+
   const handleSuccess = () => {
     loadClients()
   }
@@ -88,10 +98,12 @@ function ClientesPageClient() {
     <DashboardLayout title="Gestión de Clientes" subtitle="Administración de clientes y contratos">
       {/* Action Button */}
       <div className="flex justify-end mb-6">
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowCreateDialog(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nuevo Cliente
-        </Button>
+        <ClientsPermission action="create">
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowCreateDialog(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Nuevo Cliente
+          </Button>
+        </ClientsPermission>
       </div>
 
       {/* Stats Cards */}
@@ -243,29 +255,47 @@ function ClientesPageClient() {
                     <TableCell className="text-slate-300">{client.phone}</TableCell>
                     <TableCell>{getStatusBadge(client.status)}</TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
-                            <MoreHorizontal className="w-4 h-4" />
+                      <div className="flex items-center gap-2">
+                        {/* NUEVO: Botón directo para nueva solicitud */}
+                        <ClientsPermission action="read">
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => handleCreateRequest(client)}
+                          >
+                            <Calendar className="w-4 h-4 mr-1" />
+                            Solicitud
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="bg-slate-700 border-slate-600">
-                          <DropdownMenuItem
-                            className="text-slate-300 hover:text-white hover:bg-slate-600"
-                            onClick={() => handleEdit(client)}
-                          >
-                            <Edit className="w-4 h-4 mr-2" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-red-400 hover:text-red-300 hover:bg-slate-600"
-                            onClick={() => handleDelete(client)}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Eliminar
-                          </DropdownMenuItem>
+                        </ClientsPermission>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent className="bg-slate-700 border-slate-600">
+                            <ClientsPermission action="update">
+                              <DropdownMenuItem
+                                className="text-slate-300 hover:text-white hover:bg-slate-600"
+                                onClick={() => handleEdit(client)}
+                              >
+                                <Edit className="w-4 h-4 mr-2" />
+                                Editar
+                              </DropdownMenuItem>
+                            </ClientsPermission>
+                            <ClientsPermission action="delete">
+                              <DropdownMenuItem
+                                className="text-red-400 hover:text-red-300 hover:bg-slate-600"
+                                onClick={() => handleDelete(client)}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Eliminar
+                            </DropdownMenuItem>
+                          </ClientsPermission>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -289,6 +319,14 @@ function ClientesPageClient() {
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}
         client={selectedClient}
+        onSuccess={handleSuccess}
+      />
+
+      {/* NUEVO: Dialog de solicitud con scheduling */}
+      <ServiceRequestDialog
+        open={showRequestDialog}
+        onOpenChange={setShowRequestDialog}
+        client={selectedClientForRequest}
         onSuccess={handleSuccess}
       />
     </DashboardLayout>

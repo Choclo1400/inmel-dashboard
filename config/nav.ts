@@ -4,16 +4,27 @@ export const NAV_ITEMS: Array<{
   href: string
   roles: AppRole[]
 }> = [
-  { id: 'dashboard',       label: 'Dashboard',       href: '/dashboard',       roles: ['admin', 'supervisor'] },
-  { id: 'clientes',        label: 'Clientes',        href: '/clientes',        roles: ['admin', 'supervisor'] },
+  // ADMINISTRADOR: Control total, configuración, reportes
+  { id: 'dashboard',       label: 'Dashboard',       href: '/dashboard',       roles: ['admin', 'manager', 'supervisor'] },
+  { id: 'clientes',        label: 'Clientes',        href: '/clientes',        roles: ['admin', 'supervisor', 'operator'] },
   { id: 'tecnicos',        label: 'Técnicos',        href: '/tecnicos',        roles: ['admin', 'supervisor'] },
+  
+  // MANAGER: Dashboards, asignaciones, aprobaciones
   { id: 'solicitudes',     label: 'Solicitudes',     href: '/solicitudes',     roles: ['admin', 'supervisor', 'manager'] },
-  { id: 'mis-solicitudes', label: 'Mis Solicitudes', href: '/mis-solicitudes', roles: ['technician', 'operator'] },
+  { id: 'aprobaciones',    label: 'Aprobaciones',    href: '/aprobaciones',    roles: ['admin', 'manager'] },
   { id: 'programaciones',  label: 'Programaciones',  href: '/programaciones',  roles: ['admin', 'manager'] },
   { id: 'reportes',        label: 'Reportes',        href: '/reportes',        roles: ['admin', 'manager'] },
+  
+  // TÉCNICO: Solicitudes asignadas, actualizaciones
+  { id: 'mis-solicitudes', label: 'Mis Solicitudes', href: '/mis-solicitudes', roles: ['technician'] },
+  { id: 'mis-tareas',      label: 'Mis Tareas',      href: '/mis-tareas',      roles: ['technician'] },
+  
+  // ADMINISTRADOR EXCLUSIVO: Configuración del sistema
   { id: 'catalogos',       label: 'Catálogos',       href: '/catalogos',       roles: ['admin'] },
   { id: 'usuarios',        label: 'Usuarios',        href: '/usuarios',        roles: ['admin'] },
   { id: 'auditoria',       label: 'Auditoría',       href: '/auditoria',       roles: ['admin'] },
+  
+  // TODOS: Perfil personal
   { id: 'perfil',          label: 'Mi Perfil',       href: '/perfil',          roles: ['admin', 'supervisor', 'manager', 'technician', 'operator'] },
 ]
 
@@ -29,11 +40,11 @@ export const NAV_ACCESS: Record<AppRole, readonly string[]> = {
 }
 
 const ROLE_HOME: Record<AppRole, string> = {
-  admin: '/dashboard',
-  supervisor: '/dashboard',
-  manager: '/solicitudes',
-  technician: '/mis-solicitudes',
-  operator: '/mis-solicitudes',
+  admin: '/dashboard',        // Control total - Dashboard principal
+  manager: '/dashboard',      // Dashboards principales para supervisión
+  supervisor: '/dashboard',   // Seguimiento de tareas - Dashboard
+  technician: '/mis-solicitudes', // Acceso directo a solicitudes asignadas
+  operator: '/clientes',      // Entrada de datos - Registro de clientes
   system: '/auth/login',
 }
 
