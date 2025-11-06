@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Download, Calendar, TrendingUp, TrendingDown, Users, Clock, AlertTriangle, CheckCircle } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Download, Calendar, TrendingUp, TrendingDown, Users, Clock, AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -27,54 +27,106 @@ import {
   Area,
 } from "recharts"
 import type { DateRange } from "react-day-picker"
-
-// Mock data for reports
-const monthlyData = [
-  { month: "Ene", solicitudes: 45, completadas: 38, promedio: 2.3 },
-  { month: "Feb", solicitudes: 52, completadas: 47, promedio: 2.1 },
-  { month: "Mar", solicitudes: 48, completadas: 44, promedio: 2.5 },
-  { month: "Abr", solicitudes: 61, completadas: 55, promedio: 2.2 },
-  { month: "May", solicitudes: 55, completadas: 51, promedio: 2.0 },
-  { month: "Jun", solicitudes: 58, completadas: 53, promedio: 2.4 },
-]
-
-const statusData = [
-  { name: "Completadas", value: 105, color: "#10b981" },
-  { name: "En Progreso", value: 28, color: "#3b82f6" },
-  { name: "Pendientes", value: 12, color: "#f59e0b" },
-  { name: "Vencidas", value: 3, color: "#ef4444" },
-]
-
-const typeData = [
-  { type: "Mantenimiento Preventivo", count: 45, percentage: 30.4 },
-  { type: "Reparación", count: 38, percentage: 25.7 },
-  { type: "Instalación", count: 32, percentage: 21.6 },
-  { type: "Inspección", count: 33, percentage: 22.3 },
-]
-
-const teamPerformance = [
-  { name: "Carlos Mendoza", completadas: 28, promedio: 1.8, eficiencia: 95 },
-  { name: "Ana García", completadas: 25, promedio: 2.1, eficiencia: 92 },
-  { name: "Luis Rodríguez", completadas: 22, promedio: 2.3, eficiencia: 88 },
-  { name: "María López", completadas: 20, promedio: 2.5, eficiencia: 85 },
-  { name: "Pedro Silva", completadas: 18, promedio: 2.8, eficiencia: 82 },
-]
-
-const weeklyTrend = [
-  { week: "Sem 1", nuevas: 12, completadas: 10, vencidas: 1 },
-  { week: "Sem 2", nuevas: 15, completadas: 13, vencidas: 0 },
-  { week: "Sem 3", nuevas: 18, completadas: 16, vencidas: 2 },
-  { week: "Sem 4", nuevas: 14, completadas: 15, vencidas: 1 },
-]
+import { reportesService, type KPIData, type MonthlyData, type StatusData, type TypeData, type TeamMember, type WeeklyData } from "@/lib/services/reportesService"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function ReportesPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
   const [selectedPeriod, setSelectedPeriod] = useState("month")
   const [activeTab, setActiveTab] = useState("overview")
+  const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
+  const { toast } = useToast()
 
-  const handleExport = (format: "pdf" | "excel") => {
-    // TODO: Implement export functionality
-    console.log("[v0] Exporting reports in format:", format)
+  // Data states
+  const [kpiData, setKpiData] = useState<KPIData | null>(null)
+  const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([])
+  const [statusData, setStatusData] = useState<StatusData[]>([])
+  const [typeData, setTypeData] = useState<TypeData[]>([])
+  const [teamPerformance, setTeamPerformance] = useState<TeamMember[]>([])
+  const [weeklyTrend, setWeeklyTrend] = useState<WeeklyData[]>([])
+
+  // Load all report data
+  const loadReportData = async () => {
+    try {
+      setLoading(true)
+      const filters = { dateRange, period: selectedPeriod as any }
+
+      const [kpis, monthly, status, types, team, weekly] = await Promise.all([
+        reportesService.getKPIs(filters),
+        reportesService.getMonthlyData(filters),
+        reportesService.getStatusDistribution(),
+        reportesService.getTypeDistribution(),
+        reportesService.getTeamPerformance(),
+        reportesService.getWeeklyTrend(),
+      ])
+
+      setKpiData(kpis)
+      setMonthlyData(monthly)
+      setStatusData(status)
+      setTypeData(types)
+      setTeamPerformance(team)
+      setWeeklyTrend(weekly)
+    } catch (error) {
+      console.error("Error loading report data:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los datos del reporte",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadReportData()
+  }, [dateRange, selectedPeriod])
+
+  const handleExport = async (format: "pdf" | "excel") => {
+    try {
+      setExporting(true)
+      const filters = { dateRange, period: selectedPeriod as any }
+
+      const blob = format === "excel"
+        ? await reportesService.exportToExcel(filters)
+        : await reportesService.exportToPDF(filters)
+
+      // Download file
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `reporte_inmel_${new Date().toISOString().split("T")[0]}.${format === "excel" ? "csv" : "txt"}`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast({
+        title: "Reporte exportado",
+        description: `El reporte se ha descargado correctamente`,
+      })
+    } catch (error) {
+      console.error("Error exporting report:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo exportar el reporte",
+        variant: "destructive",
+      })
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-900">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-slate-400">Cargando datos del reporte...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -107,16 +159,26 @@ export default function ReportesPage() {
                 onClick={() => handleExport("excel")}
                 variant="outline"
                 className="border-slate-600 text-slate-300 hover:text-white bg-transparent"
+                disabled={exporting}
               >
-                <Download className="w-4 h-4 mr-2" />
+                {exporting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
                 Excel
               </Button>
               <Button
                 onClick={() => handleExport("pdf")}
                 variant="outline"
                 className="border-slate-600 text-slate-300 hover:text-white bg-transparent"
+                disabled={exporting}
               >
-                <Download className="w-4 h-4 mr-2" />
+                {exporting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
                 PDF
               </Button>
             </div>
@@ -150,10 +212,16 @@ export default function ReportesPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-slate-400 text-sm">Tiempo Promedio Respuesta</p>
-                      <p className="text-2xl font-bold text-blue-400">2.3 días</p>
+                      <p className="text-2xl font-bold text-blue-400">{kpiData?.avgResponseTime || 0} días</p>
                       <div className="flex items-center gap-1 mt-1">
-                        <TrendingDown className="w-3 h-3 text-green-400" />
-                        <span className="text-green-400 text-xs">-0.2 días vs mes anterior</span>
+                        {(kpiData?.avgResponseTimeTrend || 0) < 0 ? (
+                          <TrendingDown className="w-3 h-3 text-green-400" />
+                        ) : (
+                          <TrendingUp className="w-3 h-3 text-red-400" />
+                        )}
+                        <span className={`text-xs ${(kpiData?.avgResponseTimeTrend || 0) < 0 ? "text-green-400" : "text-red-400"}`}>
+                          {kpiData?.avgResponseTimeTrend || 0} días vs mes anterior
+                        </span>
                       </div>
                     </div>
                     <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -168,10 +236,16 @@ export default function ReportesPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-slate-400 text-sm">Tasa de Duplicidad</p>
-                      <p className="text-2xl font-bold text-orange-400">2.1%</p>
+                      <p className="text-2xl font-bold text-orange-400">{kpiData?.duplicityRate || 0}%</p>
                       <div className="flex items-center gap-1 mt-1">
-                        <TrendingDown className="w-3 h-3 text-green-400" />
-                        <span className="text-green-400 text-xs">-0.5% vs mes anterior</span>
+                        {(kpiData?.duplicityRateTrend || 0) < 0 ? (
+                          <TrendingDown className="w-3 h-3 text-green-400" />
+                        ) : (
+                          <TrendingUp className="w-3 h-3 text-red-400" />
+                        )}
+                        <span className={`text-xs ${(kpiData?.duplicityRateTrend || 0) < 0 ? "text-green-400" : "text-red-400"}`}>
+                          {kpiData?.duplicityRateTrend || 0}% vs mes anterior
+                        </span>
                       </div>
                     </div>
                     <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
@@ -186,10 +260,16 @@ export default function ReportesPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-slate-400 text-sm">Solicitudes Retrasadas</p>
-                      <p className="text-2xl font-bold text-red-400">3</p>
+                      <p className="text-2xl font-bold text-red-400">{kpiData?.delayedRequests || 0}</p>
                       <div className="flex items-center gap-1 mt-1">
-                        <TrendingUp className="w-3 h-3 text-red-400" />
-                        <span className="text-red-400 text-xs">+1 vs semana anterior</span>
+                        {(kpiData?.delayedRequestsTrend || 0) < 0 ? (
+                          <TrendingDown className="w-3 h-3 text-green-400" />
+                        ) : (
+                          <TrendingUp className="w-3 h-3 text-red-400" />
+                        )}
+                        <span className={`text-xs ${(kpiData?.delayedRequestsTrend || 0) < 0 ? "text-green-400" : "text-red-400"}`}>
+                          {kpiData?.delayedRequestsTrend > 0 ? "+" : ""}{kpiData?.delayedRequestsTrend || 0} vs semana anterior
+                        </span>
                       </div>
                     </div>
                     <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
@@ -204,10 +284,16 @@ export default function ReportesPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-slate-400 text-sm">Eficiencia General</p>
-                      <p className="text-2xl font-bold text-green-400">89.2%</p>
+                      <p className="text-2xl font-bold text-green-400">{kpiData?.generalEfficiency || 0}%</p>
                       <div className="flex items-center gap-1 mt-1">
-                        <TrendingUp className="w-3 h-3 text-green-400" />
-                        <span className="text-green-400 text-xs">+2.1% vs mes anterior</span>
+                        {(kpiData?.generalEfficiencyTrend || 0) < 0 ? (
+                          <TrendingDown className="w-3 h-3 text-red-400" />
+                        ) : (
+                          <TrendingUp className="w-3 h-3 text-green-400" />
+                        )}
+                        <span className={`text-xs ${(kpiData?.generalEfficiencyTrend || 0) < 0 ? "text-red-400" : "text-green-400"}`}>
+                          {kpiData?.generalEfficiencyTrend > 0 ? "+" : ""}{kpiData?.generalEfficiencyTrend || 0}% vs mes anterior
+                        </span>
                       </div>
                     </div>
                     <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">

@@ -1,6 +1,8 @@
 "use client"
 
 import type { User } from "@supabase/supabase-js"
+import NotificationBell from "@/components/notifications/notification-bell"
+import RefreshSessionButton from "./refresh-session-button"
 
 interface AppHeaderProps {
   title: string
@@ -23,6 +25,8 @@ export default function AppHeader({ title, subtitle, user }: AppHeaderProps) {
       </div>
 
       <div className="flex items-center space-x-4">
+        <RefreshSessionButton />
+        <NotificationBell userId={user.id} />
         <div className="text-right">
           <div className="text-sm">{name}</div>
           <div className="text-xs text-slate-400">{role}</div>

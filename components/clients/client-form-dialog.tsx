@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -15,9 +15,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { createClient } from "@/lib/supabase/client"
-import type { Client } from "@/lib/types"
+import { clientesService, type Client } from "@/lib/services/clientesService"
+import { useToast } from "@/hooks/use-toast"
 
 interface ClientFormDialogProps {
   open: boolean
@@ -28,60 +27,72 @@ interface ClientFormDialogProps {
 
 export default function ClientFormDialog({ open, onOpenChange, client, onSuccess }: ClientFormDialogProps) {
   const [formData, setFormData] = useState({
-    name: client?.name || "",
-    rut: client?.rut || "",
-    contact_name: client?.contact_name || "",
-    email: client?.email || "",
-    phone: client?.phone || "",
-    address: client?.address || "",
-    type: client?.type || "company",
-    status: client?.status || "Activo",
+    name: "",
+    contact_person: "",
+    email: "",
+    phone: "",
+    address: "",
+    type: "company" as "company" | "individual",
+    is_active: true,
   })
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const supabase = createClient()
-
-      if (client) {
-        // Update existing client
-        const { error } = await supabase
-          .from("clients")
-          .update({
-            ...formData,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", client.id)
-
-        if (error) throw error
-      } else {
-        // Create new client
-        const { error } = await supabase.from("clients").insert([formData])
-
-        if (error) throw error
-      }
-
-      onSuccess()
-      onOpenChange(false)
-
-      // Reset form
+  // Actualizar formulario cuando cambia el cliente
+  useEffect(() => {
+    if (client) {
+      setFormData({
+        name: client.name || "",
+        contact_person: client.contact_person || "",
+        email: client.email || "",
+        phone: client.phone || "",
+        address: client.address || "",
+        type: client.type || "company",
+        is_active: client.is_active ?? true,
+      })
+    } else {
       setFormData({
         name: "",
-        rut: "",
-        contact_name: "",
+        contact_person: "",
         email: "",
         phone: "",
         address: "",
         type: "company",
-        status: "Activo",
+        is_active: true,
       })
+    }
+  }, [client, open])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+
+    try {
+      if (client) {
+        // Actualizar cliente existente
+        await clientesService.update(client.id, formData)
+        toast({
+          title: "Cliente actualizado",
+          description: "Los cambios se guardaron correctamente",
+        })
+      } else {
+        // Crear nuevo cliente
+        await clientesService.create(formData)
+        toast({
+          title: "Cliente creado",
+          description: "El cliente se creó correctamente",
+        })
+      }
+
+      onSuccess()
+      onOpenChange(false)
     } catch (error: any) {
-      setError(error.message || "Error al guardar el cliente")
+      console.error("Error saving client:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Error al guardar el cliente",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -98,39 +109,25 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSuccess
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nombre de la Empresa</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="bg-slate-700 border-slate-600"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="rut">RUT</Label>
-              <Input
-                id="rut"
-                value={formData.rut}
-                onChange={(e) => setFormData({ ...formData, rut: e.target.value })}
-                className="bg-slate-700 border-slate-600"
-                placeholder="12.345.678-9"
-                required
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="name">Nombre de la Empresa/Cliente</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="bg-slate-700 border-slate-600"
+              required
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="contact_name">Nombre del Contacto</Label>
+              <Label htmlFor="contact_person">Nombre del Contacto</Label>
               <Input
-                id="contact_name"
-                value={formData.contact_name}
-                onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                id="contact_person"
+                value={formData.contact_person}
+                onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
                 className="bg-slate-700 border-slate-600"
-                required
               />
             </div>
             <div className="space-y-2">
@@ -159,11 +156,11 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSuccess
             </div>
             <div className="space-y-2">
               <Label htmlFor="type">Tipo</Label>
-                            <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value as "individual" | "company" })}>
-                <SelectTrigger>
+              <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value as "individual" | "company" })}>
+                <SelectTrigger className="bg-slate-700 border-slate-600">
                   <SelectValue placeholder="Tipo de cliente" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-slate-700 border-slate-600">
                   <SelectItem value="company">Empresa</SelectItem>
                   <SelectItem value="individual">Persona</SelectItem>
                 </SelectContent>
@@ -182,24 +179,20 @@ export default function ClientFormDialog({ open, onOpenChange, client, onSuccess
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="status">Estado</Label>
-            <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as "Activo" | "Inactivo" | "Suspendido" })}>
-              <SelectTrigger>
+            <Label htmlFor="is_active">Estado</Label>
+            <Select 
+              value={formData.is_active ? "true" : "false"} 
+              onValueChange={(value) => setFormData({ ...formData, is_active: value === "true" })}
+            >
+              <SelectTrigger className="bg-slate-700 border-slate-600">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Activo">Activo</SelectItem>
-                <SelectItem value="Inactivo">Inactivo</SelectItem>
-                <SelectItem value="Suspendido">Suspendido</SelectItem>
+              <SelectContent className="bg-slate-700 border-slate-600">
+                <SelectItem value="true">Activo</SelectItem>
+                <SelectItem value="false">Inactivo</SelectItem>
               </SelectContent>
             </Select>
           </div>
-
-
-
-          {error && (
-            <div className="text-red-400 text-sm bg-red-900/20 p-3 rounded-md border border-red-800">{error}</div>
-          )}
 
           <DialogFooter>
             <Button

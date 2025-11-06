@@ -16,27 +16,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/use-toast"
 
-// RBAC roles
-type RbacRole = "ADMIN" | "SUPERVISOR" | "GESTOR" | "TECNICO" | "SYSTEM"
+// Roles válidos según la base de datos
+type UserRole = "Administrador" | "Supervisor" | "Gestor" | "Empleado"
 
-const toRbac = (v: string): RbacRole => {
-  switch (v) {
-    case "Administrador":
+// Función para normalizar roles al formato de la BD
+const normalizeRole = (v: string): UserRole => {
+  const normalized = v.toUpperCase()
+  switch (normalized) {
+    case "ADMINISTRADOR":
     case "ADMIN":
-      return "ADMIN"
-    case "Supervisor":
+      return "Administrador"
     case "SUPERVISOR":
-      return "SUPERVISOR"
-    case "Gestor":
+      return "Supervisor"
     case "GESTOR":
-      return "GESTOR"
-    case "Empleado":
+    case "MANAGER":
+      return "Gestor"
+    case "EMPLEADO":
     case "TECNICO":
-      return "TECNICO"
-    case "SYSTEM":
-      return "SYSTEM"
+    case "TECHNICIAN":
+    case "OPERATOR":
+      return "Empleado"
     default:
-      return "TECNICO"
+      return "Empleado"
   }
 }
 
@@ -53,7 +54,7 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
     nombre: user?.nombre || "",
     apellido: user?.apellido || "",
     telefono: user?.telefono || "",
-    rol: toRbac(user?.rol || "Empleado") as RbacRole,
+    rol: normalizeRole(user?.rol || "Empleado") as UserRole,
     activo: user?.activo ?? true,
     password: "",
     confirmPassword: "",
@@ -69,7 +70,7 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
         nombre: user.nombre || "",
         apellido: user.apellido || "",
         telefono: user.telefono || "",
-        rol: toRbac(user.rol || "Empleado"),
+        rol: normalizeRole(user.rol || "Empleado"),
         activo: user.activo ?? true,
         password: "",
         confirmPassword: "",
@@ -80,7 +81,7 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
         nombre: "",
         apellido: "",
         telefono: "",
-        rol: "TECNICO",
+        rol: "Empleado",
         activo: true,
         password: "",
         confirmPassword: "",
@@ -149,7 +150,7 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
         nombre: "",
         apellido: "",
         telefono: "",
-        rol: "TECNICO",
+        rol: "Empleado",
         activo: true,
         password: "",
         confirmPassword: "",
@@ -223,15 +224,15 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
             </div>
             <div className="space-y-2">
               <Label htmlFor="rol">Rol</Label>
-              <Select value={formData.rol} onValueChange={(value) => setFormData({ ...formData, rol: value as RbacRole })}>
+              <Select value={formData.rol} onValueChange={(value) => setFormData({ ...formData, rol: value as UserRole })}>
                 <SelectTrigger className="bg-slate-700 border-slate-600">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-700 border-slate-600">
-                  <SelectItem value="ADMIN">Administrador</SelectItem>
-                  <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
-                  <SelectItem value="GESTOR">Gestor</SelectItem>
-                  <SelectItem value="TECNICO">Empleado</SelectItem>
+                  <SelectItem value="Administrador">Administrador</SelectItem>
+                  <SelectItem value="Supervisor">Supervisor</SelectItem>
+                  <SelectItem value="Gestor">Gestor</SelectItem>
+                  <SelectItem value="Empleado">Empleado</SelectItem>
                 </SelectContent>
               </Select>
             </div>

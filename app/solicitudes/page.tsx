@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Search, Plus, MoreHorizontal, Edit, Trash2, Eye, Clock, AlertCircle, CheckCircle, XCircle } from "lucide-react"
+import { Search, Plus, MoreHorizontal, Edit, Eye, Clock, AlertCircle, CheckCircle, XCircle, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,73 +11,114 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from "next/link"
 import DashboardLayout from "@/components/layout/dashboard-layout"
-import { serviceRequestService } from "@/lib/database"
-import { ServiceRequest } from "@/lib/types"
+import { solicitudesService, type Solicitud } from "@/lib/services/solicitudesService"
+import { useToast } from "@/components/ui/use-toast"
+import { createClient } from "@/lib/supabase/client"
+import SolicitudFormDialog from "@/components/solicitudes/solicitud-form-dialog"
 
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "completed":
+const getStatusBadge = (estado: string) => {
+  switch (estado) {
+    case "Completada":
       return <Badge className="bg-green-600 text-white hover:bg-green-600">Completada</Badge>
-    case "in_progress":
+    case "En Progreso":
       return <Badge className="bg-blue-600 text-white hover:bg-blue-600">En Progreso</Badge>
-    case "pending":
+    case "Aprobada":
+      return <Badge className="bg-cyan-600 text-white hover:bg-cyan-600">Aprobada</Badge>
+    case "Pendiente":
       return <Badge className="bg-orange-600 text-white hover:bg-orange-600">Pendiente</Badge>
-    case "cancelled":
-      return <Badge className="bg-red-600 text-white hover:bg-red-600">Cancelada</Badge>
+    case "Rechazada":
+      return <Badge className="bg-red-600 text-white hover:bg-red-600">Rechazada</Badge>
     default:
-      return <Badge variant="secondary">{status}</Badge>
+      return <Badge variant="secondary">{estado}</Badge>
   }
 }
 
-const getPriorityBadge = (priority: string) => {
-  switch (priority) {
-    case "high":
-      return <Badge variant="destructive">Alta</Badge>
-    case "medium":
-      return <Badge className="bg-orange-600 text-white hover:bg-orange-600">Media</Badge>
-    case "low":
+const getPriorityBadge = (prioridad: string) => {
+  switch (prioridad) {
+    case "Crítica":
+      return <Badge className="bg-red-600 text-white hover:bg-red-600">Crítica</Badge>
+    case "Alta":
+      return <Badge className="bg-orange-600 text-white hover:bg-orange-600">Alta</Badge>
+    case "Media":
+      return <Badge className="bg-yellow-600 text-white hover:bg-yellow-600">Media</Badge>
+    case "Baja":
       return <Badge className="bg-green-600 text-white hover:bg-green-600">Baja</Badge>
     default:
-      return <Badge variant="secondary">{priority}</Badge>
+      return <Badge variant="secondary">{prioridad}</Badge>
   }
 }
 
 function SolicitudesPageClient() {
-  const [requests, setRequests] = useState<ServiceRequest[]>([])
+  const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [typeFilter, setTypeFilter] = useState("all")
+  const [prioridadFilter, setPrioridadFilter] = useState("all")
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [selectedSolicitud, setSelectedSolicitud] = useState<Solicitud | null>(null)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [userId, setUserId] = useState<string>("")
+  const { toast } = useToast()
 
   useEffect(() => {
-    const fetchRequests = async () => {
-      setLoading(true)
-      try {
-        const data = await serviceRequestService.getAll()
-        setRequests(data)
-      } catch (error) {
-        console.error("Error fetching service requests:", error)
-        // Handle error (e.g., show a toast notification)
-      } finally {
-        setLoading(false)
+    const fetchUser = async () => {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) {
+        setUserId(user.id)
       }
     }
-    fetchRequests()
+    fetchUser()
   }, [])
 
-  const filteredRequests = requests.filter((request) => {
+  const fetchSolicitudes = async () => {
+    setLoading(true)
+    try {
+      const data = await solicitudesService.getAll()
+      setSolicitudes(data)
+    } catch (error) {
+      console.error("Error fetching solicitudes:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las solicitudes",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchSolicitudes()
+  }, [])
+
+  const filteredSolicitudes = solicitudes.filter((solicitud) => {
     const lowerSearchTerm = searchTerm.toLowerCase()
     const matchesSearch =
-      (request.id && request.id.toLowerCase().includes(lowerSearchTerm)) ||
-      (request.client?.name && request.client.name.toLowerCase().includes(lowerSearchTerm)) ||
-      (request.description && request.description.toLowerCase().includes(lowerSearchTerm)) ||
-      (request.assigned_technician?.name && request.assigned_technician.name.toLowerCase().includes(lowerSearchTerm))
+      solicitud.numero_solicitud.toLowerCase().includes(lowerSearchTerm) ||
+      solicitud.direccion.toLowerCase().includes(lowerSearchTerm) ||
+      solicitud.descripcion.toLowerCase().includes(lowerSearchTerm) ||
+      (solicitud.tecnico_asignado &&
+        `${solicitud.tecnico_asignado.nombre} ${solicitud.tecnico_asignado.apellido}`
+          .toLowerCase()
+          .includes(lowerSearchTerm))
 
-    const matchesStatus = statusFilter === "all" || request.status === statusFilter
-    const matchesType = typeFilter === "all" || request.service_type === typeFilter
+    const matchesStatus = statusFilter === "all" || solicitud.estado === statusFilter
+    const matchesPrioridad = prioridadFilter === "all" || solicitud.prioridad === prioridadFilter
 
-    return matchesSearch && matchesStatus && matchesType
+    return matchesSearch && matchesStatus && matchesPrioridad
   })
+
+  const handleEdit = (solicitud: Solicitud) => {
+    setSelectedSolicitud(solicitud)
+    setShowEditDialog(true)
+  }
+
+  const handleSuccess = () => {
+    fetchSolicitudes()
+  }
 
   if (loading) {
     return (
@@ -88,27 +129,41 @@ function SolicitudesPageClient() {
   }
 
   return (
-    <DashboardLayout title="Solicitudes Técnicas" subtitle="Gestión de solicitudes de mantenimiento eléctrico">
+    <DashboardLayout title="Solicitudes de Servicio" subtitle="Gestión de solicitudes de mantenimiento eléctrico">
       {/* Action Button */}
       <div className="flex justify-end mb-6">
-        <Link href="/solicitudes/nueva">
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-            <Plus className="w-4 h-4 mr-2" />
-            Nueva Solicitud
-          </Button>
-        </Link>
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowCreateDialog(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Nueva Solicitud
+        </Button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-5 gap-6 mb-8">
         <Card className="bg-slate-800 border-slate-700">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm">Total Solicitudes</p>
-                <p className="text-2xl font-bold text-white">{requests.length}</p>
+                <p className="text-slate-400 text-sm">Total</p>
+                <p className="text-2xl font-bold text-white">{solicitudes.length}</p>
               </div>
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-slate-600 rounded-lg flex items-center justify-center">
+                <FileText className="w-5 h-5 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-sm">Pendientes</p>
+                <p className="text-2xl font-bold text-orange-400">
+                  {solicitudes.filter((s) => s.estado === "Pendiente").length}
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
                 <AlertCircle className="w-5 h-5 text-white" />
               </div>
             </div>
@@ -121,7 +176,7 @@ function SolicitudesPageClient() {
               <div>
                 <p className="text-slate-400 text-sm">En Progreso</p>
                 <p className="text-2xl font-bold text-blue-400">
-                  {requests.filter((r) => r.status === "in_progress").length}
+                  {solicitudes.filter((s) => s.estado === "En Progreso").length}
                 </p>
               </div>
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -137,7 +192,7 @@ function SolicitudesPageClient() {
               <div>
                 <p className="text-slate-400 text-sm">Completadas</p>
                 <p className="text-2xl font-bold text-green-400">
-                  {requests.filter((r) => r.status === "completed").length}
+                  {solicitudes.filter((s) => s.estado === "Completada").length}
                 </p>
               </div>
               <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
@@ -151,9 +206,9 @@ function SolicitudesPageClient() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm">Canceladas</p>
+                <p className="text-slate-400 text-sm">Críticas</p>
                 <p className="text-2xl font-bold text-red-400">
-                  {requests.filter((r) => r.status === "cancelled").length}
+                  {solicitudes.filter((s) => s.prioridad === "Crítica").length}
                 </p>
               </div>
               <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
@@ -175,7 +230,7 @@ function SolicitudesPageClient() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <Input
-                  placeholder="Buscar por ID, cliente, descripción o técnico..."
+                  placeholder="Buscar por número, dirección, descripción o técnico..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 bg-slate-700 border-slate-600 text-white placeholder-slate-400"
@@ -188,88 +243,120 @@ function SolicitudesPageClient() {
               </SelectTrigger>
               <SelectContent className="bg-slate-700 border-slate-600">
                 <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="pending">Pendiente</SelectItem>
-                <SelectItem value="in_progress">En Progreso</SelectItem>
-                <SelectItem value="completed">Completada</SelectItem>
-                <SelectItem value="cancelled">Cancelada</SelectItem>
+                <SelectItem value="Pendiente">Pendiente</SelectItem>
+                <SelectItem value="Aprobada">Aprobada</SelectItem>
+                <SelectItem value="En Progreso">En Progreso</SelectItem>
+                <SelectItem value="Completada">Completada</SelectItem>
+                <SelectItem value="Rechazada">Rechazada</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <Select value={prioridadFilter} onValueChange={setPrioridadFilter}>
               <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Tipo" />
+                <SelectValue placeholder="Prioridad" />
               </SelectTrigger>
               <SelectContent className="bg-slate-700 border-slate-600">
-                <SelectItem value="all">Todos los tipos</SelectItem>
-                <SelectItem value="Mantenimiento Preventivo">Mantenimiento Preventivo</SelectItem>
-                <SelectItem value="Reparación">Reparación</SelectItem>
-                <SelectItem value="Instalación">Instalación</SelectItem>
-                <SelectItem value="Inspección">Inspección</SelectItem>
+                <SelectItem value="all">Todas las prioridades</SelectItem>
+                <SelectItem value="Crítica">Crítica</SelectItem>
+                <SelectItem value="Alta">Alta</SelectItem>
+                <SelectItem value="Media">Media</SelectItem>
+                <SelectItem value="Baja">Baja</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </CardContent>
       </Card>
 
-      {/* Requests Table */}
+      {/* Solicitudes Table */}
       <Card className="bg-slate-800 border-slate-700">
         <CardHeader>
-          <CardTitle className="text-white">Lista de Solicitudes</CardTitle>
+          <CardTitle className="text-white">Lista de Solicitudes ({filteredSolicitudes.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow className="border-slate-700">
-                <TableHead className="text-slate-300">ID</TableHead>
-                <TableHead className="text-slate-300">Cliente</TableHead>
-                <TableHead className="text-slate-300">Tipo</TableHead>
-                <TableHead className="text-slate-300">Técnico</TableHead>
-                <TableHead className="text-slate-300">Fecha Programada</TableHead>
-                <TableHead className="text-slate-300">Estado</TableHead>
-                <TableHead className="text-slate-300">Prioridad</TableHead>
-                <TableHead className="text-slate-300">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredRequests.map((request) => (
-                <TableRow key={request.id} className="border-slate-700 hover:bg-slate-700/50">
-                  <TableCell className="text-white font-medium">{request.id.substring(0, 8)}</TableCell>
-                  <TableCell className="text-slate-300 max-w-xs truncate">{request.client?.name}</TableCell>
-                  <TableCell className="text-slate-300">{request.service_type}</TableCell>
-                  <TableCell className="text-slate-300">{request.assigned_technician?.name}</TableCell>
-                  <TableCell className="text-slate-300">{request.scheduled_date ? new Date(request.scheduled_date).toLocaleDateString() : 'N/A'}</TableCell>
-                  <TableCell>{getStatusBadge(request.status)}</TableCell>
-                  <TableCell>{getPriorityBadge(request.priority)}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="bg-slate-700 border-slate-600">
-                        <Link href={`/solicitudes/${request.id}`}>
-                          <DropdownMenuItem className="text-slate-300 hover:text-white hover:bg-slate-600">
-                            <Eye className="w-4 h-4 mr-2" />
-                            Ver Detalles
-                          </DropdownMenuItem>
-                        </Link>
-                        <DropdownMenuItem className="text-slate-300 hover:text-white hover:bg-slate-600">
-                          <Edit className="w-4 h-4 mr-2" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-400 hover:text-red-300 hover:bg-slate-600">
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Eliminar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          {filteredSolicitudes.length === 0 ? (
+            <div className="text-center py-12 text-slate-400">
+              <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p className="text-lg">No se encontraron solicitudes</p>
+              <p className="text-sm mt-2">Intenta ajustar los filtros o crea una nueva solicitud</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="border-slate-700">
+                  <TableHead className="text-slate-300">Número</TableHead>
+                  <TableHead className="text-slate-300">Dirección</TableHead>
+                  <TableHead className="text-slate-300">Tipo</TableHead>
+                  <TableHead className="text-slate-300">Técnico</TableHead>
+                  <TableHead className="text-slate-300">Fecha Estimada</TableHead>
+                  <TableHead className="text-slate-300">Estado</TableHead>
+                  <TableHead className="text-slate-300">Prioridad</TableHead>
+                  <TableHead className="text-slate-300">Acciones</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredSolicitudes.map((solicitud) => (
+                  <TableRow key={solicitud.id} className="border-slate-700 hover:bg-slate-700/50">
+                    <TableCell className="text-white font-medium">{solicitud.numero_solicitud}</TableCell>
+                    <TableCell className="text-slate-300 max-w-xs truncate">{solicitud.direccion}</TableCell>
+                    <TableCell className="text-slate-300">{solicitud.tipo_trabajo}</TableCell>
+                    <TableCell className="text-slate-300">
+                      {solicitud.tecnico_asignado
+                        ? `${solicitud.tecnico_asignado.nombre} ${solicitud.tecnico_asignado.apellido}`
+                        : "Sin asignar"}
+                    </TableCell>
+                    <TableCell className="text-slate-300">
+                      {solicitud.fecha_estimada
+                        ? new Date(solicitud.fecha_estimada).toLocaleDateString("es-CL")
+                        : "N/A"}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(solicitud.estado)}</TableCell>
+                    <TableCell>{getPriorityBadge(solicitud.prioridad)}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="bg-slate-700 border-slate-600">
+                          <Link href={`/solicitudes/${solicitud.id}`}>
+                            <DropdownMenuItem className="text-slate-300 hover:text-white hover:bg-slate-600">
+                              <Eye className="w-4 h-4 mr-2" />
+                              Ver Detalles
+                            </DropdownMenuItem>
+                          </Link>
+                          <DropdownMenuItem
+                            className="text-slate-300 hover:text-white hover:bg-slate-600"
+                            onClick={() => handleEdit(solicitud)}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
+
+      {/* Dialogs */}
+      <SolicitudFormDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        userId={userId}
+        onSuccess={handleSuccess}
+      />
+
+      <SolicitudFormDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        solicitud={selectedSolicitud}
+        userId={userId}
+        onSuccess={handleSuccess}
+      />
     </DashboardLayout>
   )
 }

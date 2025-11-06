@@ -10,78 +10,40 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import DashboardLayout from "@/components/layout/dashboard-layout"
-import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/use-toast"
 import UserFormDialog from "@/components/users/user-form-dialog"
 import UserDeleteDialog from "@/components/users/user-delete-dialog"
 import UserRoleBadge from "@/components/users/user-role-badge"
-import type { User } from "@/lib/types"
-
-const getStatusBadge = (activo: boolean) => {
-  return activo ? (
-    <Badge className="bg-green-600 text-white hover:bg-green-600">Activo</Badge>
-  ) : (
-    <Badge className="bg-red-600 text-white hover:bg-red-600">Inactivo</Badge>
-  )
-}
+import { usuariosService, type User } from "@/lib/services/usuariosService"
 
 export default function UsuariosPage() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
   const [roleFilter, setRoleFilter] = useState("all")
-  const [users, setUsers] = useState<any[]>([])
+  const [users, setUsers] = useState<User[]>([])
+  const [stats, setStats] = useState({ total: 0, administradores: 0, supervisores: 0, gestores: 0, empleados: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<any | null>(null)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const { toast } = useToast()
 
   const loadUsers = async () => {
     try {
-      const supabase = createClient()
-      const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false })
-
-      if (error) {
-        console.error("Error querying users table, trying profiles fallback:", error)
-        // Try fallback to profiles table (some setups use profiles instead)
-        try {
-          const { data: pData, error: pError } = await supabase
-            .from("profiles")
-            .select("id,email,nombre,apellido,telefono,rol,activo,created_at")
-            .order("created_at", { ascending: false })
-
-          if (pError) throw pError
-          // Map profiles rows to users shape used by the UI
-          setUsers(
-            (pData || []).map((p: any) => ({
-              id: p.id,
-              email: p.email,
-              nombre: p.nombre,
-              apellido: p.apellido,
-              telefono: p.telefono,
-              rol: p.rol,
-              activo: p.activo ?? true,
-              created_at: p.created_at,
-            })),
-          )
-          return
-        } catch (pErr: any) {
-          console.error("Profiles fallback also failed:", pErr)
-          toast({
-            title: "Error cargando usuarios",
-            description:
-              (pErr && pErr.message) || (error && error.message) ||
-              "No se pudo obtener la lista de usuarios. Revisa las políticas RLS en Supabase.",
-          })
-          return
-        }
-      }
-
-      setUsers(data || [])
+      setIsLoading(true)
+      const [usersData, statsData] = await Promise.all([
+        usuariosService.getAll(),
+        usuariosService.getStats(),
+      ])
+      setUsers(usersData)
+      setStats(statsData)
     } catch (error) {
       console.error("Error loading users:", error)
-      toast({ title: "Error cargando usuarios", description: "No se pudo obtener la lista de usuarios." })
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los usuarios",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -104,22 +66,17 @@ export default function UsuariosPage() {
       email.includes(term) ||
       telefono.includes(term)
 
-    const matchesStatus =
-      statusFilter === "all" ||
-      (statusFilter === "active" && !!user?.activo) ||
-      (statusFilter === "inactive" && !user?.activo)
-
     const matchesRole = roleFilter === "all" || (user?.rol === roleFilter)
 
-    return matchesSearch && matchesStatus && matchesRole
+    return matchesSearch && matchesRole
   })
 
-  const handleEdit = (user: any) => {
+  const handleEdit = (user: User) => {
     setSelectedUser(user)
     setShowEditDialog(true)
   }
 
-  const handleDelete = (user: any) => {
+  const handleDelete = (user: User) => {
     setSelectedUser(user)
     setShowDeleteDialog(true)
   }
@@ -127,10 +84,6 @@ export default function UsuariosPage() {
   const handleSuccess = () => {
     loadUsers()
   }
-
-  const activeUsers = users.filter((u) => u.activo).length
-  const adminUsers = users.filter((u) => u.rol === "Administrador").length
-  const supervisorUsers = users.filter((u) => u.rol === "Supervisor").length
 
   return (
     <DashboardLayout title="Gestión de Usuarios" subtitle="Administración de usuarios del sistema">
@@ -162,8 +115,8 @@ export default function UsuariosPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm">Usuarios Activos</p>
-                <p className="text-2xl font-bold text-green-400">{activeUsers}</p>
+                <p className="text-slate-400 text-sm">Gestores</p>
+                <p className="text-2xl font-bold text-green-400">{stats.gestores}</p>
               </div>
               <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
                 <UserCheck className="w-5 h-5 text-white" />
@@ -177,7 +130,7 @@ export default function UsuariosPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-400 text-sm">Administradores</p>
-                <p className="text-2xl font-bold text-purple-400">{adminUsers}</p>
+                <p className="text-2xl font-bold text-purple-400">{stats.administradores}</p>
               </div>
               <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
                 <Shield className="w-5 h-5 text-white" />
@@ -191,7 +144,7 @@ export default function UsuariosPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-400 text-sm">Supervisores</p>
-                <p className="text-2xl font-bold text-blue-400">{supervisorUsers}</p>
+                <p className="text-2xl font-bold text-blue-400">{stats.supervisores}</p>
               </div>
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                 <UserX className="w-5 h-5 text-white" />
@@ -219,16 +172,6 @@ export default function UsuariosPage() {
                 />
               </div>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-700 border-slate-600">
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="active">Activos</SelectItem>
-                <SelectItem value="inactive">Inactivos</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
               <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white">
                 <SelectValue placeholder="Rol" />
@@ -261,7 +204,6 @@ export default function UsuariosPage() {
                   <TableHead className="text-slate-300">Email</TableHead>
                   <TableHead className="text-slate-300">Teléfono</TableHead>
                   <TableHead className="text-slate-300">Rol</TableHead>
-                  <TableHead className="text-slate-300">Estado</TableHead>
                   <TableHead className="text-slate-300">Fecha Registro</TableHead>
                   <TableHead className="text-slate-300">Acciones</TableHead>
                 </TableRow>
@@ -282,7 +224,6 @@ export default function UsuariosPage() {
                     <TableCell>
                       <UserRoleBadge role={user.rol} />
                     </TableCell>
-                    <TableCell>{getStatusBadge(user.activo)}</TableCell>
                     <TableCell className="text-slate-300">
                       {user?.created_at ? new Date(user.created_at).toLocaleDateString("es-CL") : "-"}
                     </TableCell>

@@ -33,8 +33,36 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
     return createBrowserClient(url, anon)
   }, [])
 
+  // Función para cargar el rol del usuario desde la base de datos
+  const loadUserRole = async (userId: string) => {
+    try {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('rol')
+        .eq('id', userId)
+        .single()
+      
+      const rol = (profileData as any)?.rol
+      
+      // Normalizar el rol
+      const raw = (rol ?? '').toString().toLowerCase()
+      let normalizedRole = raw
+      if (raw === 'administrador') normalizedRole = 'admin'
+      else if (raw === 'gestor') normalizedRole = 'manager'
+      else if (raw === 'técnico' || raw === 'tecnico') normalizedRole = 'technician'
+      else if (raw === 'empleado') normalizedRole = 'operator'
+      else if (raw === 'supervisor') normalizedRole = 'supervisor'
+      
+      return normalizedRole
+    } catch (error) {
+      console.error('[dashboard-layout] Error loading user role:', error)
+      return null
+    }
+  }
+
   useEffect(() => {
     let mounted = true
+    let realtimeChannel: any = null
 
     ;(async () => {
       try {
@@ -47,49 +75,16 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
         }
 
         const rawUser: any = data.user
-        // Intentar obtener rol desde user_metadata o raw_user_meta_data
-        let rol: string | undefined =
-          rawUser?.user_metadata?.rol ?? rawUser?.raw_user_meta_data?.rol
-
-        // Si no está, intentar desde tabla profiles
-        if (!rol) {
-          try {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('rol')
-              .eq('id', rawUser.id)
-              .single()
-            rol = (profileData as any)?.rol
-          } catch {
-            // ignore
-          }
-        }
-
-        // Si aún no hay rol, intentar desde tabla `users` (admin create path)
-        if (!rol) {
-          try {
-            const { data: userRow } = await supabase.from('profiles').select('rol').eq('id', rawUser.id).single()
-            rol = (userRow as any)?.rol
-          } catch {
-            // ignore
-          }
-        }
-
-        // Normalizar el rol igual que en lib/auth/role.ts
-        const raw = (rol ?? '').toString().toLowerCase()
-        let normalizedRole = raw
-        if (raw === 'administrador') normalizedRole = 'admin'
-        else if (raw === 'gestor') normalizedRole = 'manager'
-        else if (raw === 'técnico' || raw === 'tecnico') normalizedRole = 'technician'
-        else if (raw === 'empleado') normalizedRole = 'operator'
-        else if (raw === 'supervisor') normalizedRole = 'supervisor'
+        
+        // Cargar el rol desde la base de datos
+        const normalizedRole = await loadUserRole(rawUser.id)
 
         // Attach role into user.user_metadata for consistent access across app
         const enhancedUser: User = {
           ...rawUser,
           user_metadata: {
             ...(rawUser.user_metadata ?? {}),
-            rol: rol ?? rawUser?.user_metadata?.rol ?? rawUser?.raw_user_meta_data?.rol ?? undefined,
+            rol: normalizedRole,
           },
         } as User
 
@@ -97,6 +92,32 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
           setUser(enhancedUser)
           setUserRole(normalizedRole || null)
         }
+
+        // Suscribirse a cambios en tiempo real del perfil del usuario
+        realtimeChannel = supabase
+          .channel(`profile-changes-${rawUser.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'profiles',
+              filter: `id=eq.${rawUser.id}`,
+            },
+            async (payload: any) => {
+              console.log('[dashboard-layout] Profile updated, refreshing role...', payload)
+              if (!mounted) return
+              
+              // Recargar el rol actualizado
+              const updatedRole = await loadUserRole(rawUser.id)
+              if (mounted) {
+                setUserRole(updatedRole)
+                console.log('[dashboard-layout] Role updated to:', updatedRole)
+              }
+            }
+          )
+          .subscribe()
+
       } catch (err) {
         console.error('[dashboard-layout] Error checking user:', err)
         if (mounted) router.replace('/auth/login')
@@ -106,7 +127,7 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
     })()
 
     // Escuchar cambios de auth para redirigir si se cierra sesión
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (!mounted) return
       if (!session) {
         router.replace('/auth/login')
@@ -115,6 +136,12 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
 
     return () => {
       mounted = false
+      
+      // Limpiar suscripción realtime
+      if (realtimeChannel) {
+        supabase.removeChannel(realtimeChannel)
+      }
+      
       try {
         ;(listener as any)?.subscription?.unsubscribe?.()
         ;(listener as any)?.unsubscribe?.()

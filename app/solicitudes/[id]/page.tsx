@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation"
 import {
   ArrowLeft,
   Edit,
-  Trash2,
   Calendar,
   MapPin,
   User,
@@ -13,104 +12,126 @@ import {
   AlertTriangle,
   CheckCircle,
   FileText,
-  Mail,
-  Phone,
-  MessageSquare,
+  Users,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
-import { serviceRequestService } from "@/lib/database"
-import { ServiceRequest } from "@/lib/types"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { solicitudesService, type Solicitud } from "@/lib/services/solicitudesService"
+import SolicitudTimeline from "@/components/solicitudes/solicitud-timeline"
+import { createClient } from "@/lib/supabase/client"
 
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "completed":
+const getStatusBadge = (estado: string) => {
+  switch (estado) {
+    case "Completada":
       return <Badge className="bg-green-600 text-white hover:bg-green-600">Completada</Badge>
-    case "in_progress":
+    case "En Progreso":
       return <Badge className="bg-blue-600 text-white hover:bg-blue-600">En Progreso</Badge>
-    case "pending":
+    case "Aprobada":
+      return <Badge className="bg-cyan-600 text-white hover:bg-cyan-600">Aprobada</Badge>
+    case "Pendiente":
       return <Badge className="bg-orange-600 text-white hover:bg-orange-600">Pendiente</Badge>
-    case "cancelled":
-      return <Badge className="bg-red-600 text-white hover:bg-red-600">Cancelada</Badge>
+    case "Rechazada":
+      return <Badge className="bg-red-600 text-white hover:bg-red-600">Rechazada</Badge>
     default:
-      return <Badge variant="secondary">{status}</Badge>
+      return <Badge variant="secondary">{estado}</Badge>
   }
 }
 
-const getPriorityBadge = (priority: string) => {
-  switch (priority) {
-    case "high":
-      return <Badge variant="destructive">Alta</Badge>
-    case "urgent":
-      return <Badge variant="destructive">Urgente</Badge>
-    case "medium":
-      return <Badge className="bg-orange-600 text-white hover:bg-orange-600">Media</Badge>
-    case "low":
+const getPriorityBadge = (prioridad: string) => {
+  switch (prioridad) {
+    case "Crítica":
+      return <Badge className="bg-red-600 text-white hover:bg-red-600">Crítica</Badge>
+    case "Alta":
+      return <Badge className="bg-orange-600 text-white hover:bg-orange-600">Alta</Badge>
+    case "Media":
+      return <Badge className="bg-yellow-600 text-white hover:bg-yellow-600">Media</Badge>
+    case "Baja":
       return <Badge className="bg-green-600 text-white hover:bg-green-600">Baja</Badge>
     default:
-      return <Badge variant="secondary">{priority}</Badge>
+      return <Badge variant="secondary">{prioridad}</Badge>
   }
 }
 
 export default function SolicitudDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const [request, setRequest] = useState<ServiceRequest | null>(null)
+  const [solicitud, setSolicitud] = useState<Solicitud | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [newComment, setNewComment] = useState("")
+  const [userId, setUserId] = useState<string>("")
+  const [userName, setUserName] = useState<string>("")
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+  const { toast } = useToast()
 
   const id = Array.isArray(params.id) ? params.id[0] : params.id
 
   useEffect(() => {
-    if (id) {
-      const fetchRequest = async () => {
-        setLoading(true)
-        try {
-          const data = await serviceRequestService.getById(id)
-          setRequest(data)
-        } catch (err) {
-          setError("Error al cargar la solicitud.")
-          console.error(err)
-        } finally {
-          setLoading(false)
+    const fetchUser = async () => {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) {
+        setUserId(user.id)
+        // Fetch user profile for name
+        const { data: profile } = await supabase.from("profiles").select("nombre, apellido").eq("id", user.id).single()
+        if (profile) {
+          setUserName(`${profile.nombre} ${profile.apellido}`)
         }
       }
-      fetchRequest()
     }
-  }, [id])
+    fetchUser()
+  }, [])
 
-  const handleAddComment = () => {
-    if (newComment.trim()) {
-      // TODO: Implement comment addition logic
-      console.log("Adding comment:", newComment)
-      setNewComment("")
+  const fetchSolicitud = async () => {
+    if (!id) return
+
+    setLoading(true)
+    try {
+      const data = await solicitudesService.getById(id)
+      setSolicitud(data)
+    } catch (err) {
+      setError("Error al cargar la solicitud.")
+      console.error(err)
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la solicitud",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleDelete = async () => {
-    if (id) {
-      try {
-        await serviceRequestService.delete(id)
-        router.push("/solicitudes")
-      } catch (err) {
-        setError("Error al eliminar la solicitud.")
-        console.error(err)
-      }
+  useEffect(() => {
+    fetchSolicitud()
+  }, [id])
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!solicitud) return
+
+    setUpdatingStatus(true)
+    try {
+      await solicitudesService.updateStatus(solicitud.id, newStatus as any)
+      toast({
+        title: "Estado actualizado",
+        description: `El estado de la solicitud cambió a ${newStatus}`,
+      })
+      fetchSolicitud()
+    } catch (err) {
+      console.error(err)
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado",
+        variant: "destructive",
+      })
+    } finally {
+      setUpdatingStatus(false)
     }
   }
 
@@ -118,12 +139,15 @@ export default function SolicitudDetailPage() {
     return <div className="flex justify-center items-center h-screen text-white">Cargando...</div>
   }
 
-  if (error) {
-    return <div className="flex justify-center items-center h-screen text-red-500">{error}</div>
-  }
-
-  if (!request) {
-    return <div className="flex justify-center items-center h-screen text-white">No se encontró la solicitud.</div>
+  if (error || !solicitud) {
+    return (
+      <div className="flex flex-col justify-center items-center h-screen text-white gap-4">
+        <p className="text-red-500">{error || "No se encontró la solicitud"}</p>
+        <Link href="/solicitudes">
+          <Button variant="outline">Volver a Solicitudes</Button>
+        </Link>
+      </div>
+    )
   }
 
   return (
@@ -139,8 +163,8 @@ export default function SolicitudDetailPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-white">Solicitud #{request.id.substring(0, 8)}</h1>
-              <p className="text-slate-400 text-sm">Detalles de la solicitud de servicio</p>
+              <h1 className="text-2xl font-bold text-white">{solicitud.numero_solicitud}</h1>
+              <p className="text-slate-400 text-sm">{solicitud.tipo_trabajo}</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -150,36 +174,12 @@ export default function SolicitudDetailPage() {
                 Editar
               </Button>
             </Link>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="destructive" className="bg-red-600 hover:bg-red-700">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Eliminar
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-slate-800 border-slate-700 text-white">
-                <DialogHeader>
-                  <DialogTitle>¿Estás seguro?</DialogTitle>
-                  <DialogDescription className="text-slate-400">
-                    Esta acción no se puede deshacer. Esto eliminará permanentemente la solicitud de servicio.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button variant="outline" className="border-slate-600 text-slate-300 hover:text-white bg-transparent">
-                    Cancelar
-                  </Button>
-                  <Button variant="destructive" onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-                    Sí, eliminar
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-8 max-w-6xl mx-auto">
+      <div className="p-8 max-w-7xl mx-auto">
         <div className="grid grid-cols-3 gap-6">
           {/* Main Information */}
           <div className="col-span-2 space-y-6">
@@ -194,30 +194,41 @@ export default function SolicitudDetailPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-slate-400 text-sm">Tipo de Servicio</p>
-                    <p className="text-white font-medium">{request.service_type}</p>
+                    <p className="text-slate-400 text-sm">Tipo de Trabajo</p>
+                    <p className="text-white font-medium">{solicitud.tipo_trabajo}</p>
                   </div>
                   <div>
                     <p className="text-slate-400 text-sm">Prioridad</p>
-                    <div className="mt-1">{getPriorityBadge(request.priority)}</div>
+                    <div className="mt-1">{getPriorityBadge(solicitud.prioridad)}</div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-slate-400 text-sm">Dirección</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <MapPin className="w-4 h-4 text-slate-400" />
+                    <p className="text-white">{solicitud.direccion}</p>
                   </div>
                 </div>
 
                 <div>
                   <p className="text-slate-400 text-sm">Descripción</p>
-                  <p className="text-white mt-1">{request.description}</p>
+                  <p className="text-white mt-1">{solicitud.descripcion}</p>
                 </div>
 
-                {request.notes && (
+                {solicitud.horas_estimadas && (
                   <div>
-                    <p className="text-slate-400 text-sm">Notas Adicionales</p>
-                    <p className="text-white mt-1">{request.notes}</p>
+                    <p className="text-slate-400 text-sm">Horas Estimadas</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Clock className="w-4 h-4 text-slate-400" />
+                      <p className="text-white">{solicitud.horas_estimadas} horas</p>
+                    </div>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Progress */}
+            {/* Status Update */}
             <Card className="bg-slate-800 border-slate-700">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
@@ -225,40 +236,31 @@ export default function SolicitudDetailPage() {
                   Estado de la Solicitud
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-sm text-slate-400">Estado: {getStatusBadge(request.status)}</div>
-              </CardContent>
-            </Card>
-
-            {/* Comments */}
-            <Card className="bg-slate-800 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5" />
-                  Comentarios y Actualizaciones
-                </CardTitle>
-              </CardHeader>
               <CardContent className="space-y-4">
-                <div className="text-slate-400">Funcionalidad de comentarios en desarrollo.</div>
-                <Separator className="bg-slate-700" />
-                <div className="space-y-3">
-                  <p className="text-slate-300 font-medium">Agregar comentario</p>
-                  <Textarea
-                    placeholder="Escribe una actualización o comentario..."
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    className="bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                  />
-                  <Button
-                    onClick={handleAddComment}
-                    disabled={!newComment.trim()}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    Agregar Comentario
-                  </Button>
+                <div className="flex items-center gap-4">
+                  <span className="text-slate-400">Estado actual:</span>
+                  {getStatusBadge(solicitud.estado)}
+                </div>
+                <div className="space-y-2">
+                  <p className="text-slate-400 text-sm">Cambiar estado:</p>
+                  <Select value={solicitud.estado} onValueChange={handleStatusChange} disabled={updatingStatus}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-700 border-slate-600">
+                      <SelectItem value="Pendiente">Pendiente</SelectItem>
+                      <SelectItem value="Aprobada">Aprobada</SelectItem>
+                      <SelectItem value="En Progreso">En Progreso</SelectItem>
+                      <SelectItem value="Completada">Completada</SelectItem>
+                      <SelectItem value="Rechazada">Rechazada</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Timeline/Comments */}
+            {userId && <SolicitudTimeline solicitudId={solicitud.id} userId={userId} userName={userName} />}
           </div>
 
           {/* Sidebar */}
@@ -267,23 +269,44 @@ export default function SolicitudDetailPage() {
             <Card className="bg-slate-800 border-slate-700">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
-                  <User className="w-5 h-5" />
+                  <Users className="w-5 h-5" />
                   Asignación
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <p className="text-slate-400 text-sm">Técnico Responsable</p>
-                  <p className="text-white font-medium">
-                    {request.assigned_technician
-                      ? `${request.assigned_technician.name}`
-                      : "No asignado"}
-                  </p>
+                  <p className="text-slate-400 text-sm">Técnico Asignado</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <User className="w-4 h-4 text-slate-400" />
+                    <p className="text-white">
+                      {solicitud.tecnico_asignado
+                        ? `${solicitud.tecnico_asignado.nombre} ${solicitud.tecnico_asignado.apellido}`
+                        : "Sin asignar"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-slate-400 text-sm">Cliente</p>
-                  <p className="text-white">{request.client?.name || "No especificado"}</p>
-                </div>
+                {solicitud.supervisor && (
+                  <div>
+                    <p className="text-slate-400 text-sm">Supervisor</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <User className="w-4 h-4 text-slate-400" />
+                      <p className="text-white">
+                        {solicitud.supervisor.nombre} {solicitud.supervisor.apellido}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {solicitud.creador && (
+                  <div>
+                    <p className="text-slate-400 text-sm">Creado por</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <User className="w-4 h-4 text-slate-400" />
+                      <p className="text-white">
+                        {solicitud.creador.nombre} {solicitud.creador.apellido}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -298,45 +321,37 @@ export default function SolicitudDetailPage() {
               <CardContent className="space-y-4">
                 <div>
                   <p className="text-slate-400 text-sm">Fecha de Creación</p>
-                  <p className="text-white">{new Date(request.created_at).toLocaleDateString()}</p>
+                  <p className="text-white">{new Date(solicitud.created_at).toLocaleDateString("es-CL")}</p>
                 </div>
-                <div>
-                  <p className="text-slate-400 text-sm">Fecha Programada</p>
-                  <p className="text-white">
-                    {request.scheduled_date
-                      ? new Date(request.scheduled_date).toLocaleDateString()
-                      : "No programada"}
-                  </p>
-                </div>
+                {solicitud.fecha_estimada && (
+                  <div>
+                    <p className="text-slate-400 text-sm">Fecha Estimada</p>
+                    <p className="text-white">{new Date(solicitud.fecha_estimada).toLocaleDateString("es-CL")}</p>
+                  </div>
+                )}
+                {solicitud.fecha_aprobacion && (
+                  <div>
+                    <p className="text-slate-400 text-sm">Fecha de Aprobación</p>
+                    <p className="text-white">{new Date(solicitud.fecha_aprobacion).toLocaleDateString("es-CL")}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Contact */}
-            {request.client && (
+            {/* Approval Info */}
+            {solicitud.aprobado_por && (
               <Card className="bg-slate-800 border-slate-700">
                 <CardHeader>
                   <CardTitle className="text-white flex items-center gap-2">
-                    <Mail className="w-5 h-5" />
-                    Contacto del Cliente
+                    <CheckCircle className="w-5 h-5" />
+                    Información de Aprobación
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {request.client.email && (
+                  {solicitud.comentarios_aprobacion && (
                     <div>
-                      <p className="text-slate-400 text-sm">Email</p>
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-4 h-4 text-slate-400" />
-                        <p className="text-white">{request.client.email}</p>
-                      </div>
-                    </div>
-                  )}
-                  {request.client.phone && (
-                    <div>
-                      <p className="text-slate-400 text-sm">Teléfono</p>
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-4 h-4 text-slate-400" />
-                        <p className="text-white">{request.client.phone}</p>
-                      </div>
+                      <p className="text-slate-400 text-sm">Comentarios</p>
+                      <p className="text-white mt-1">{solicitud.comentarios_aprobacion}</p>
                     </div>
                   )}
                 </CardContent>
@@ -344,12 +359,14 @@ export default function SolicitudDetailPage() {
             )}
 
             {/* Alert */}
-            <Alert className="bg-amber-900/20 border-amber-700">
-              <AlertTriangle className="h-4 w-4 text-amber-400" />
-              <AlertDescription className="text-amber-300">
-                Recuerda actualizar el progreso y agregar comentarios regularmente para mantener informado al equipo.
-              </AlertDescription>
-            </Alert>
+            {solicitud.prioridad === "Crítica" && (
+              <Alert className="bg-red-900/20 border-red-700">
+                <AlertTriangle className="h-4 w-4 text-red-400" />
+                <AlertDescription className="text-red-300">
+                  Esta es una solicitud de prioridad crítica. Requiere atención inmediata.
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         </div>
       </div>
