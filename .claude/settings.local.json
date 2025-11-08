@@ -4,7 +4,12 @@
       "Bash(tree:*)",
       "Bash(cat:*)",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: implementar flujo completo de supervisor\n\n- Agregar estado ''Requiere Información'' a solicitudes\n- Crear trigger de auto-asignación de supervisores\n- Implementar funciones: requestMoreInfo, assignSupervisor, getSupervisors\n- Crear componentes reutilizables de supervisor:\n  - ApprovalDialog (aprobar/rechazar/solicitar info)\n  - AssignTechnicianDialog (asignación con validación)\n  - SupervisorMetrics (KPIs y métricas)\n  - PendingRequestsList (lista con acciones rápidas)\n- Crear dashboard de supervisor (app/supervisor/page.tsx)\n- Mejorar página de solicitudes del supervisor con nuevos componentes\n- Agregar templates de notificaciones para supervisores\n- Crear políticas RLS restrictivas para supervisión\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: implementar flujo completo de supervisor\n\n- Agregar estado ''Requiere Información'' a solicitudes\n- Crear trigger de auto-asignación de supervisores\n- Implementar funciones: requestMoreInfo, assignSupervisor, getSupervisors\n- Crear componentes reutilizables de supervisor:\n  - ApprovalDialog (aprobar/rechazar/solicitar info)\n  - AssignTechnicianDialog (asignación con validación)\n  - SupervisorMetrics (KPIs y métricas)\n  - PendingRequestsList (lista con acciones rápidas)\n- Crear dashboard de supervisor (app/supervisor/page.tsx)\n- Mejorar página de solicitudes del supervisor con nuevos componentes\n- Agregar templates de notificaciones para supervisores\n- Crear políticas RLS restrictivas para supervisión\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(npm run build:*)",
+      "Bash(dir:*)",
+      "Bash(nul)",
+      "Bash(del /Q placeholder*.* 2)",
+      "Bash(Select-String -Pattern \"Compiled|Error|Export\" -Context 0,2)"
     ],
     "deny": [],
     "ask": []
