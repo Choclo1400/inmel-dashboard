@@ -1,20 +1,26 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Search, Plus, MoreHorizontal, Edit, Eye, Clock, AlertCircle, CheckCircle, XCircle, FileText } from "lucide-react"
+import { Search, Plus, MoreHorizontal, Edit, Eye, Clock, AlertCircle, CheckCircle, XCircle, FileText, ThumbsUp, ThumbsDown, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import DashboardLayout from "@/components/layout/dashboard-layout"
 import { solicitudesService, type Solicitud } from "@/lib/services/solicitudesService"
+import { notificationsService } from "@/lib/services/notificationsService"
 import { useToast } from "@/components/ui/use-toast"
 import { createClient } from "@/lib/supabase/client"
 import SolicitudFormDialog from "@/components/solicitudes/solicitud-form-dialog"
+import { ScheduleBookingDialog } from "@/components/solicitudes/schedule-booking-dialog"
+import { getBookingsBySolicitudId } from "@/lib/services/scheduling-lite"
 
 const getStatusBadge = (estado: string) => {
   switch (estado) {
@@ -57,7 +63,15 @@ function SolicitudesPageClient() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [selectedSolicitud, setSelectedSolicitud] = useState<Solicitud | null>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false)
+  const [approvalAction, setApprovalAction] = useState<"approve" | "reject">("approve")
+  const [approvalComments, setApprovalComments] = useState("")
+  const [processing, setProcessing] = useState(false)
   const [userId, setUserId] = useState<string>("")
+  const [userRole, setUserRole] = useState<string>("")
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false)
+  const [solicitudToSchedule, setSolicitudToSchedule] = useState<Solicitud | null>(null)
+  const [bookingsMap, setBookingsMap] = useState<Record<string, boolean>>({}) // Map de solicitud_id → tiene booking
   const { toast } = useToast()
 
   useEffect(() => {
@@ -66,8 +80,30 @@ function SolicitudesPageClient() {
       const {
         data: { user },
       } = await supabase.auth.getUser()
+
+      console.log("👤 Usuario autenticado:", user?.email)
+
       if (user) {
         setUserId(user.id)
+
+        // Obtener rol del usuario desde profiles
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("rol")
+          .eq("id", user.id)
+          .single()
+
+        if (error) {
+          console.error("❌ Error al obtener perfil:", error)
+        }
+
+        if (profile) {
+          console.log("🔐 Rol del usuario:", profile.rol)
+          console.log("✅ canApprove será:", profile.rol === "Supervisor" || profile.rol === "Administrador")
+          setUserRole(profile.rol)
+        } else {
+          console.warn("⚠️ No se encontró perfil para el usuario")
+        }
       }
     }
     fetchUser()
@@ -78,6 +114,21 @@ function SolicitudesPageClient() {
     try {
       const data = await solicitudesService.getAll()
       setSolicitudes(data)
+
+      // Cargar bookings para verificar cuáles solicitudes ya están programadas
+      const bookingsStatus: Record<string, boolean> = {}
+      await Promise.all(
+        data.map(async (solicitud) => {
+          try {
+            const bookings = await getBookingsBySolicitudId(solicitud.id)
+            bookingsStatus[solicitud.id] = bookings.length > 0
+          } catch (err) {
+            console.error(`Error loading bookings for solicitud ${solicitud.id}:`, err)
+            bookingsStatus[solicitud.id] = false
+          }
+        })
+      )
+      setBookingsMap(bookingsStatus)
     } catch (error) {
       console.error("Error fetching solicitudes:", error)
       toast({
@@ -92,6 +143,59 @@ function SolicitudesPageClient() {
 
   useEffect(() => {
     fetchSolicitudes()
+  }, [])
+
+  // 🔥 REALTIME: Suscripción a cambios en la tabla solicitudes
+  useEffect(() => {
+    const supabase = createClient()
+
+    console.log('📡 [Solicitudes] Iniciando suscripción Realtime...')
+
+    const channel = supabase
+      .channel('solicitudes-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Escuchar INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'solicitudes'
+        },
+        (payload: any) => {
+          console.log('📡 [Solicitudes] Cambio detectado en tiempo real:', payload)
+
+          // Mostrar notificación visual según el tipo de cambio
+          if (payload.eventType === 'UPDATE' && payload.new.estado !== payload.old?.estado) {
+            const estadoNuevo = payload.new.estado
+            const numero = payload.new.numero_solicitud
+
+            if (estadoNuevo === 'Aprobada') {
+              toast({
+                title: "✅ Solicitud aprobada",
+                description: `La solicitud ${numero} ha sido aprobada`,
+                duration: 5000,
+              })
+            } else if (estadoNuevo === 'Rechazada') {
+              toast({
+                title: "❌ Solicitud rechazada",
+                description: `La solicitud ${numero} ha sido rechazada`,
+                duration: 5000,
+              })
+            }
+          }
+
+          // Recargar datos automáticamente
+          fetchSolicitudes()
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 [Solicitudes] Estado de suscripción:', status)
+      })
+
+    // Cleanup: Desuscribirse al desmontar
+    return () => {
+      console.log('📡 [Solicitudes] Cerrando suscripción Realtime...')
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   const filteredSolicitudes = solicitudes.filter((solicitud) => {
@@ -116,9 +220,96 @@ function SolicitudesPageClient() {
     setShowEditDialog(true)
   }
 
+  const handleOpenScheduleDialog = (solicitud: Solicitud) => {
+    setSolicitudToSchedule(solicitud)
+    setShowScheduleDialog(true)
+  }
+
+  const handleScheduleSuccess = () => {
+    setShowScheduleDialog(false)
+    setSolicitudToSchedule(null)
+    fetchSolicitudes() // Recargar para actualizar el estado de bookings
+  }
+
   const handleSuccess = () => {
     fetchSolicitudes()
   }
+
+  const handleOpenApprovalDialog = (solicitud: Solicitud, action: "approve" | "reject") => {
+    setSelectedSolicitud(solicitud)
+    setApprovalAction(action)
+    setApprovalComments("")
+    setShowApprovalDialog(true)
+  }
+
+  const handleApproval = async () => {
+    if (!selectedSolicitud || !approvalComments.trim() || !userId) {
+      toast({
+        title: "Error",
+        description: "Por favor ingresa un comentario",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setProcessing(true)
+
+      if (approvalAction === "approve") {
+        await solicitudesService.approve(selectedSolicitud.id, userId, approvalComments)
+        toast({
+          title: "Solicitud aprobada",
+          description: `La solicitud ${selectedSolicitud.numero_solicitud} ha sido aprobada`,
+        })
+
+        // Enviar notificación al creador
+        if (selectedSolicitud.creado_por) {
+          await notificationsService.create({
+            user_id: selectedSolicitud.creado_por,
+            title: "Solicitud Aprobada",
+            message: `Tu solicitud ${selectedSolicitud.numero_solicitud} ha sido aprobada`,
+            type: "success",
+            solicitud_id: selectedSolicitud.id,
+          })
+        }
+      } else {
+        await solicitudesService.reject(selectedSolicitud.id, userId, approvalComments)
+        toast({
+          title: "Solicitud rechazada",
+          description: `La solicitud ${selectedSolicitud.numero_solicitud} ha sido rechazada`,
+        })
+
+        // Enviar notificación al creador
+        if (selectedSolicitud.creado_por) {
+          await notificationsService.create({
+            user_id: selectedSolicitud.creado_por,
+            title: "Solicitud Rechazada",
+            message: `Tu solicitud ${selectedSolicitud.numero_solicitud} ha sido rechazada`,
+            type: "error",
+            solicitud_id: selectedSolicitud.id,
+          })
+        }
+      }
+
+      // Reset y recargar
+      setShowApprovalDialog(false)
+      setSelectedSolicitud(null)
+      setApprovalComments("")
+      fetchSolicitudes()
+    } catch (error) {
+      console.error("Error processing approval:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo procesar la aprobación",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  // Verificar si el usuario puede aprobar/rechazar solicitudes
+  const canApprove = userRole === "Supervisor" || userRole === "Administrador"
 
   if (loading) {
     return (
@@ -288,6 +479,7 @@ function SolicitudesPageClient() {
                   <TableHead className="text-slate-300">Técnico</TableHead>
                   <TableHead className="text-slate-300">Fecha Estimada</TableHead>
                   <TableHead className="text-slate-300">Estado</TableHead>
+                  <TableHead className="text-slate-300">Programación</TableHead>
                   <TableHead className="text-slate-300">Prioridad</TableHead>
                   <TableHead className="text-slate-300">Acciones</TableHead>
                 </TableRow>
@@ -309,6 +501,21 @@ function SolicitudesPageClient() {
                         : "N/A"}
                     </TableCell>
                     <TableCell>{getStatusBadge(solicitud.estado)}</TableCell>
+                    <TableCell>
+                      {bookingsMap[solicitud.id] ? (
+                        <Badge className="bg-green-600 text-white hover:bg-green-600">
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Programada
+                        </Badge>
+                      ) : solicitud.estado === "Aprobada" || solicitud.estado === "En Progreso" ? (
+                        <Badge variant="outline" className="text-slate-400">
+                          <Clock className="w-3 h-3 mr-1" />
+                          Sin programar
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-slate-500">—</Badge>
+                      )}
+                    </TableCell>
                     <TableCell>{getPriorityBadge(solicitud.prioridad)}</TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -331,6 +538,41 @@ function SolicitudesPageClient() {
                             <Edit className="w-4 h-4 mr-2" />
                             Editar
                           </DropdownMenuItem>
+
+                          {/* Botón de programación para solicitudes aprobadas con técnico asignado */}
+                          {canApprove && (solicitud.estado === "Aprobada" || solicitud.estado === "En Progreso") && solicitud.tecnico_asignado_id && (
+                            <>
+                              <DropdownMenuSeparator className="bg-slate-600" />
+                              <DropdownMenuItem
+                                className="text-blue-400 hover:text-blue-300 hover:bg-slate-600"
+                                onClick={() => handleOpenScheduleDialog(solicitud)}
+                              >
+                                <Calendar className="w-4 h-4 mr-2" />
+                                {bookingsMap[solicitud.id] ? "Reprogramar" : "Programar"}
+                              </DropdownMenuItem>
+                            </>
+                          )}
+
+                          {/* Botones de aprobación solo para Supervisores/Admins y solicitudes Pendientes */}
+                          {canApprove && solicitud.estado === "Pendiente" && (
+                            <>
+                              <DropdownMenuSeparator className="bg-slate-600" />
+                              <DropdownMenuItem
+                                className="text-green-400 hover:text-green-300 hover:bg-slate-600"
+                                onClick={() => handleOpenApprovalDialog(solicitud, "approve")}
+                              >
+                                <ThumbsUp className="w-4 h-4 mr-2" />
+                                Aprobar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-red-400 hover:text-red-300 hover:bg-slate-600"
+                                onClick={() => handleOpenApprovalDialog(solicitud, "reject")}
+                              >
+                                <ThumbsDown className="w-4 h-4 mr-2" />
+                                Rechazar
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -356,6 +598,123 @@ function SolicitudesPageClient() {
         solicitud={selectedSolicitud}
         userId={userId}
         onSuccess={handleSuccess}
+      />
+
+      {/* Approval Dialog */}
+      <Dialog open={showApprovalDialog} onOpenChange={setShowApprovalDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              {approvalAction === "approve" ? "Aprobar Solicitud" : "Rechazar Solicitud"} - {selectedSolicitud?.numero_solicitud}
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              {approvalAction === "approve"
+                ? "Estás a punto de aprobar esta solicitud. Por favor ingresa un comentario."
+                : "Estás a punto de rechazar esta solicitud. Por favor explica la razón del rechazo."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedSolicitud && (
+            <div className="space-y-4">
+              {/* Info de la solicitud */}
+              <div className="bg-slate-700 p-4 rounded-lg space-y-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-slate-400 text-xs">Tipo de Trabajo</Label>
+                    <p className="text-white">{selectedSolicitud.tipo_trabajo}</p>
+                  </div>
+                  <div>
+                    <Label className="text-slate-400 text-xs">Prioridad</Label>
+                    <div className="mt-1">{getPriorityBadge(selectedSolicitud.prioridad)}</div>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Dirección</Label>
+                  <p className="text-white">{selectedSolicitud.direccion}</p>
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs">Descripción</Label>
+                  <p className="text-white text-sm">{selectedSolicitud.descripcion}</p>
+                </div>
+                {selectedSolicitud.horas_estimadas && (
+                  <div>
+                    <Label className="text-slate-400 text-xs">Horas Estimadas</Label>
+                    <p className="text-white">{selectedSolicitud.horas_estimadas} horas</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Campo de comentarios */}
+              <div className="space-y-2">
+                <Label htmlFor="approval-comments" className="text-white">
+                  Comentarios {approvalAction === "reject" ? "(Obligatorio)" : "*"}
+                </Label>
+                <Textarea
+                  id="approval-comments"
+                  placeholder={
+                    approvalAction === "approve"
+                      ? "Ej: Solicitud aprobada, cumple con los requisitos..."
+                      : "Ej: No cumple con los requisitos porque..."
+                  }
+                  value={approvalComments}
+                  onChange={(e) => setApprovalComments(e.target.value)}
+                  className="bg-slate-700 border-slate-600 text-white placeholder-slate-400 min-h-[100px]"
+                  rows={4}
+                />
+                <p className="text-xs text-slate-400">
+                  {approvalAction === "approve"
+                    ? "Este comentario será visible para el solicitante."
+                    : "Explica claramente la razón del rechazo para que el solicitante pueda corregir."}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowApprovalDialog(false)}
+              disabled={processing}
+              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleApproval}
+              disabled={!approvalComments.trim() || processing}
+              className={
+                approvalAction === "approve"
+                  ? "bg-green-600 hover:bg-green-700"
+                  : "bg-red-600 hover:bg-red-700"
+              }
+            >
+              {processing ? (
+                <>
+                  <Clock className="w-4 h-4 mr-2 animate-spin" />
+                  Procesando...
+                </>
+              ) : approvalAction === "approve" ? (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Aprobar Solicitud
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Rechazar Solicitud
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Booking Dialog */}
+      <ScheduleBookingDialog
+        open={showScheduleDialog}
+        onOpenChange={setShowScheduleDialog}
+        solicitud={solicitudToSchedule}
+        onSuccess={handleScheduleSuccess}
       />
     </DashboardLayout>
   )

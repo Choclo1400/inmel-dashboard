@@ -2,20 +2,20 @@ import { createClient } from "../supabase/client"
 
 export interface Notification {
   id: string
-  usuario_id: string
-  titulo: string
-  mensaje: string
-  tipo: "info" | "success" | "warning" | "error"
-  leida: boolean
+  user_id: string
+  title: string
+  message: string
+  type: "info" | "success" | "warning" | "error"
+  is_read: boolean
   solicitud_id?: string
   created_at: string
 }
 
 export interface CreateNotificationData {
-  usuario_id: string
-  titulo: string
-  mensaje: string
-  tipo: "info" | "success" | "warning" | "error"
+  user_id: string
+  title: string
+  message: string
+  type: "info" | "success" | "warning" | "error"
   solicitud_id?: string
 }
 
@@ -27,13 +27,13 @@ export class NotificationsService {
    */
   async getByUser(userId: string, unreadOnly = false): Promise<Notification[]> {
     let query = this.supabase
-      .from("notificaciones")
+      .from("notifications")
       .select("*")
-      .eq("usuario_id", userId)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
 
     if (unreadOnly) {
-      query = query.eq("leida", false)
+      query = query.eq("is_read", false)
     }
 
     const { data, error } = await query
@@ -51,10 +51,10 @@ export class NotificationsService {
    */
   async getUnreadCount(userId: string): Promise<number> {
     const { count, error } = await this.supabase
-      .from("notificaciones")
+      .from("notifications")
       .select("id", { count: "exact", head: true })
-      .eq("usuario_id", userId)
-      .eq("leida", false)
+      .eq("user_id", userId)
+      .eq("is_read", false)
 
     if (error) {
       console.error("Error counting unread notifications:", error)
@@ -68,7 +68,7 @@ export class NotificationsService {
    * Crea una nueva notificación
    */
   async create(notification: CreateNotificationData): Promise<Notification> {
-    const { data, error } = await this.supabase.from("notificaciones").insert(notification).select().single()
+    const { data, error } = await this.supabase.from("notifications").insert(notification).select().single()
 
     if (error) {
       console.error("Error creating notification:", error)
@@ -82,7 +82,7 @@ export class NotificationsService {
    * Crea múltiples notificaciones
    */
   async createMany(notifications: CreateNotificationData[]): Promise<Notification[]> {
-    const { data, error } = await this.supabase.from("notificaciones").insert(notifications).select()
+    const { data, error } = await this.supabase.from("notifications").insert(notifications).select()
 
     if (error) {
       console.error("Error creating notifications:", error)
@@ -96,7 +96,7 @@ export class NotificationsService {
    * Marca una notificación como leída
    */
   async markAsRead(id: string): Promise<Notification> {
-    const { data, error } = await this.supabase.from("notificaciones").update({ leida: true }).eq("id", id).select().single()
+    const { data, error } = await this.supabase.from("notifications").update({ is_read: true }).eq("id", id).select().single()
 
     if (error) {
       console.error("Error marking notification as read:", error)
@@ -110,7 +110,7 @@ export class NotificationsService {
    * Marca todas las notificaciones de un usuario como leídas
    */
   async markAllAsRead(userId: string): Promise<void> {
-    const { error } = await this.supabase.from("notificaciones").update({ leida: true }).eq("usuario_id", userId).eq("leida", false)
+    const { error } = await this.supabase.from("notifications").update({ is_read: true }).eq("user_id", userId).eq("is_read", false)
 
     if (error) {
       console.error("Error marking all notifications as read:", error)
@@ -122,7 +122,7 @@ export class NotificationsService {
    * Elimina una notificación
    */
   async delete(id: string): Promise<void> {
-    const { error } = await this.supabase.from("notificaciones").delete().eq("id", id)
+    const { error } = await this.supabase.from("notifications").delete().eq("id", id)
 
     if (error) {
       console.error("Error deleting notification:", error)
@@ -138,9 +138,9 @@ export class NotificationsService {
     cutoffDate.setDate(cutoffDate.getDate() - daysOld)
 
     const { error } = await this.supabase
-      .from("notificaciones")
+      .from("notifications")
       .delete()
-      .eq("usuario_id", userId)
+      .eq("user_id", userId)
       .lt("created_at", cutoffDate.toISOString())
 
     if (error) {
@@ -160,8 +160,8 @@ export class NotificationsService {
         {
           event: "INSERT",
           schema: "public",
-          table: "notificaciones",
-          filter: `usuario_id=eq.${userId}`,
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
         },
         callback,
       )

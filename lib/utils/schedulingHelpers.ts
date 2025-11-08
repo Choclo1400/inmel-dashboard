@@ -1,4 +1,4 @@
-import { schedulingLite } from "../services/scheduling-lite"
+import { getTechnicians, checkAvailability, getDayAvailableSlots } from "../services/scheduling-lite"
 
 export interface TechnicianWithAvailability {
   id: string
@@ -17,7 +17,7 @@ export async function findAvailableTechnicians(
   requiredSkill?: string,
 ): Promise<TechnicianWithAvailability[]> {
   try {
-    const technicians = await schedulingLite.getTechnicians()
+    const technicians = await getTechnicians()
     const results: TechnicianWithAvailability[] = []
 
     for (const tech of technicians) {
@@ -26,7 +26,9 @@ export async function findAvailableTechnicians(
         continue
       }
 
-      const isAvailable = await schedulingLite.checkAvailability(tech.id, startDate, endDate)
+      const startISO = startDate.toISOString()
+      const endISO = endDate.toISOString()
+      const isAvailable = await checkAvailability(tech.id, startISO, endISO)
 
       results.push({
         id: tech.id,
@@ -94,7 +96,7 @@ export async function getTechnicianWeekAvailability(technicianId: string, weekSt
     currentDay.setDate(currentDay.getDate() + i)
 
     try {
-      const slots = await schedulingLite.getDayAvailableSlots(technicianId, currentDay)
+      const slots = await getDayAvailableSlots(technicianId, currentDay)
       weekDays.push({
         date: currentDay.toISOString().split("T")[0],
         dayName: currentDay.toLocaleDateString("es-CL", { weekday: "long" }),

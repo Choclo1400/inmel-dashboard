@@ -21,8 +21,8 @@ interface NotificationBellProps {
   userId: string
 }
 
-const getNotificationIcon = (tipo: string) => {
-  switch (tipo) {
+const getNotificationIcon = (type: string) => {
+  switch (type) {
     case "success":
       return "✓"
     case "error":
@@ -34,8 +34,8 @@ const getNotificationIcon = (tipo: string) => {
   }
 }
 
-const getNotificationColor = (tipo: string) => {
-  switch (tipo) {
+const getNotificationColor = (type: string) => {
+  switch (type) {
     case "success":
       return "text-green-400"
     case "error":
@@ -57,7 +57,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     try {
       const data = await notificationsService.getByUser(userId)
       setNotifications(data)
-      setUnreadCount(data.filter((n) => !n.leida).length)
+  setUnreadCount(data.filter((n) => !n.is_read).length)
     } catch (error) {
       console.error("Error loading notifications:", error)
     }
@@ -75,9 +75,9 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
         // Show toast for new notification
         const newNotif = payload.new as Notification
         toast({
-          title: newNotif.titulo,
-          description: newNotif.mensaje,
-          variant: newNotif.tipo === "error" ? "destructive" : "default",
+          title: newNotif.title,
+          description: newNotif.message,
+          variant: newNotif.type === "error" ? "destructive" : "default",
         })
       })
 
@@ -163,21 +163,21 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
               <DropdownMenuItem
                 key={notification.id}
                 className={`flex flex-col items-start gap-1 p-3 cursor-pointer ${
-                  !notification.leida ? "bg-slate-700/50" : ""
+                  !notification.is_read ? "bg-slate-700/50" : ""
                 } hover:bg-slate-700 focus:bg-slate-700`}
-                onClick={() => !notification.leida && handleMarkAsRead(notification.id)}
+                onClick={() => !notification.is_read && handleMarkAsRead(notification.id)}
               >
                 <div className="flex items-start justify-between w-full gap-2">
                   <div className="flex items-start gap-2 flex-1">
-                    <span className={`text-lg ${getNotificationColor(notification.tipo)}`}>
-                      {getNotificationIcon(notification.tipo)}
+                    <span className={`text-lg ${getNotificationColor(notification.type)}`}>
+                      {getNotificationIcon(notification.type)}
                     </span>
                     <div className="flex-1">
-                      <p className="text-white text-sm font-medium">{notification.titulo}</p>
-                      <p className="text-slate-400 text-xs line-clamp-2">{notification.mensaje}</p>
+                      <p className="text-white text-sm font-medium">{notification.title}</p>
+                      <p className="text-slate-400 text-xs line-clamp-2">{notification.message}</p>
                     </div>
                   </div>
-                  {!notification.leida && (
+                  {!notification.is_read && (
                     <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-1"></div>
                   )}
                 </div>

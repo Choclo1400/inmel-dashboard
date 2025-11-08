@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Search, Filter, Download, Save, RotateCcw, AlertTriangle } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Search, Filter, Download, Save, RotateCcw, AlertTriangle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,59 +11,10 @@ import { DatePickerWithRange } from "@/components/ui/date-range-picker"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useToast } from "@/components/ui/use-toast"
+import { solicitudesService, type Solicitud } from "@/lib/services/solicitudesService"
+import Link from "next/link"
 import type { DateRange } from "react-day-picker"
-
-// Mock search results data
-const mockSearchResults = [
-  {
-    id: "SOL-2025-001",
-    address: "Av. Providencia 1234, Santiago",
-    description: "Mantenimiento preventivo de transformador principal",
-    type: "Mantenimiento Preventivo",
-    date: "2025-01-15",
-    responsible: "Carlos Mendoza",
-    status: "En Progreso",
-    priority: "Alta",
-    client: "Enel Distribución",
-    estimatedHours: 8,
-    createdAt: "2025-01-10",
-    completedAt: null,
-  },
-  {
-    id: "SOL-2025-002",
-    address: "Calle Las Condes 567, Las Condes",
-    description: "Reparación de falla en sistema de iluminación",
-    type: "Reparación",
-    date: "2025-01-16",
-    responsible: "Ana García",
-    status: "Completada",
-    priority: "Media",
-    client: "Enel Distribución",
-    estimatedHours: 4,
-    createdAt: "2025-01-12",
-    completedAt: "2025-01-16",
-  },
-  {
-    id: "SOL-2025-003",
-    address: "Av. Apoquindo 890, Las Condes",
-    description: "Instalación de nuevo medidor inteligente",
-    type: "Instalación",
-    date: "2025-01-14",
-    responsible: "Luis Rodríguez",
-    status: "Pendiente",
-    priority: "Baja",
-    client: "Enel Distribución",
-    estimatedHours: 2,
-    createdAt: "2025-01-08",
-    completedAt: null,
-  },
-]
-
-const savedSearches = [
-  { id: 1, name: "Solicitudes Vencidas", description: "Todas las solicitudes con fecha vencida" },
-  { id: 2, name: "Alta Prioridad Pendientes", description: "Solicitudes de alta prioridad sin completar" },
-  { id: 3, name: "Mantenimientos Enero", description: "Todos los mantenimientos programados para enero" },
-]
 
 interface SearchFilters {
   searchTerm: string
@@ -78,6 +29,38 @@ interface SearchFilters {
   estimatedHoursMin: string
   estimatedHoursMax: string
   includeCompleted: boolean
+}
+
+const getStatusBadge = (estado: string) => {
+  switch (estado) {
+    case "Completada":
+      return <Badge className="bg-green-600 text-white hover:bg-green-600">Completada</Badge>
+    case "En Progreso":
+      return <Badge className="bg-blue-600 text-white hover:bg-blue-600">En Progreso</Badge>
+    case "Aprobada":
+      return <Badge className="bg-cyan-600 text-white hover:bg-cyan-600">Aprobada</Badge>
+    case "Pendiente":
+      return <Badge className="bg-orange-600 text-white hover:bg-orange-600">Pendiente</Badge>
+    case "Rechazada":
+      return <Badge className="bg-red-600 text-white hover:bg-red-600">Rechazada</Badge>
+    default:
+      return <Badge variant="secondary">{estado}</Badge>
+  }
+}
+
+const getPriorityBadge = (prioridad: string) => {
+  switch (prioridad) {
+    case "Crítica":
+      return <Badge className="bg-red-600 text-white hover:bg-red-600">Crítica</Badge>
+    case "Alta":
+      return <Badge className="bg-orange-600 text-white hover:bg-orange-600">Alta</Badge>
+    case "Media":
+      return <Badge className="bg-yellow-600 text-white hover:bg-yellow-600">Media</Badge>
+    case "Baja":
+      return <Badge className="bg-green-600 text-white hover:bg-green-600">Baja</Badge>
+    default:
+      return <Badge variant="secondary">{prioridad}</Badge>
+  }
 }
 
 export default function BusquedaPage() {
@@ -96,21 +79,118 @@ export default function BusquedaPage() {
     includeCompleted: true,
   })
 
-  const [searchResults, setSearchResults] = useState(mockSearchResults)
+  const [searchResults, setSearchResults] = useState<Solicitud[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const { toast } = useToast()
 
-  const handleSearch = () => {
+  // Cargar todas las solicitudes al inicio
+  useEffect(() => {
+    handleSearch()
+  }, [])
+
+  const handleSearch = async () => {
     setIsSearching(true)
-    // TODO: Implement actual search logic
-    console.log("[v0] Performing search with filters:", filters)
+    console.log("🔍 Buscando con filtros:", filters)
 
-    // Simulate search delay
-    setTimeout(() => {
+    try {
+      // Obtener todas las solicitudes
+      const allSolicitudes = await solicitudesService.getAll()
+
+      // Aplicar filtros
+      let results = allSolicitudes
+
+      // Filtro por término de búsqueda
+      if (filters.searchTerm) {
+        const term = filters.searchTerm.toLowerCase()
+        results = results.filter(
+          (s) =>
+            s.numero_solicitud.toLowerCase().includes(term) ||
+            s.direccion.toLowerCase().includes(term) ||
+            s.descripcion.toLowerCase().includes(term) ||
+            (s.tecnico_asignado && `${s.tecnico_asignado.nombre} ${s.tecnico_asignado.apellido}`.toLowerCase().includes(term))
+        )
+      }
+
+      // Filtro por ID específico
+      if (filters.requestId) {
+        results = results.filter((s) => s.numero_solicitud.toLowerCase().includes(filters.requestId.toLowerCase()))
+      }
+
+      // Filtro por estado
+      if (filters.status.length > 0) {
+        results = results.filter((s) => filters.status.includes(s.estado))
+      }
+
+      // Filtro por prioridad
+      if (filters.priority.length > 0) {
+        results = results.filter((s) => filters.priority.includes(s.prioridad))
+      }
+
+      // Filtro por tipo de trabajo
+      if (filters.type.length > 0) {
+        results = results.filter((s) => filters.type.includes(s.tipo_trabajo))
+      }
+
+      // Filtro por técnico
+      if (filters.responsible.length > 0) {
+        results = results.filter(
+          (s) =>
+            s.tecnico_asignado &&
+            filters.responsible.includes(`${s.tecnico_asignado.nombre} ${s.tecnico_asignado.apellido}`)
+        )
+      }
+
+      // Filtro por horas estimadas
+      if (filters.estimatedHoursMin) {
+        const min = parseFloat(filters.estimatedHoursMin)
+        results = results.filter((s) => s.horas_estimadas && s.horas_estimadas >= min)
+      }
+      if (filters.estimatedHoursMax) {
+        const max = parseFloat(filters.estimatedHoursMax)
+        results = results.filter((s) => s.horas_estimadas && s.horas_estimadas <= max)
+      }
+
+      // Filtro por rango de fechas de creación
+      if (filters.createdDateRange?.from) {
+        results = results.filter((s) => {
+          const createdDate = new Date(s.created_at)
+          return createdDate >= filters.createdDateRange!.from!
+        })
+      }
+      if (filters.createdDateRange?.to) {
+        results = results.filter((s) => {
+          const createdDate = new Date(s.created_at)
+          return createdDate <= filters.createdDateRange!.to!
+        })
+      }
+
+      // Filtro por rango de fechas estimadas
+      if (filters.dateRange?.from && filters.dateRange?.to) {
+        results = results.filter((s) => {
+          if (!s.fecha_estimada) return false
+          const fechaEstimada = new Date(s.fecha_estimada)
+          return fechaEstimada >= filters.dateRange!.from! && fechaEstimada <= filters.dateRange!.to!
+        })
+      }
+
+      console.log(`✅ Encontradas ${results.length} solicitudes`)
+      setSearchResults(results)
+
+      toast({
+        title: "Búsqueda completada",
+        description: `Se encontraron ${results.length} resultados`,
+      })
+    } catch (error) {
+      console.error("❌ Error en búsqueda:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo realizar la búsqueda",
+        variant: "destructive",
+      })
+    } finally {
       setIsSearching(false)
-      // For now, just return mock results
-      setSearchResults(mockSearchResults)
-    }, 1000)
+    }
   }
 
   const handleReset = () => {
@@ -132,13 +212,52 @@ export default function BusquedaPage() {
   }
 
   const handleExport = () => {
-    // TODO: Implement export functionality
-    console.log("[v0] Exporting search results:", searchResults)
+    // Exportar a CSV
+    const csv = [
+      ["ID", "Tipo", "Dirección", "Técnico", "Fecha", "Estado", "Prioridad", "Horas"],
+      ...searchResults.map((r) => [
+        r.numero_solicitud,
+        r.tipo_trabajo,
+        r.direccion,
+        r.tecnico_asignado ? `${r.tecnico_asignado.nombre} ${r.tecnico_asignado.apellido}` : "Sin asignar",
+        r.fecha_estimada ? new Date(r.fecha_estimada).toLocaleDateString() : "N/A",
+        r.estado,
+        r.prioridad,
+        r.horas_estimadas || "N/A",
+      ]),
+    ]
+      .map((row) => row.join(","))
+      .join("\n")
+
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `busqueda_solicitudes_${new Date().toISOString().split("T")[0]}.csv`
+    a.click()
+
+    toast({
+      title: "Exportado",
+      description: "Resultados exportados a CSV",
+    })
   }
 
   const handleSaveSearch = () => {
-    // TODO: Implement save search functionality
-    console.log("[v0] Saving search with filters:", filters)
+    // Guardar búsqueda en localStorage
+    const savedSearches = JSON.parse(localStorage.getItem("savedSearches") || "[]")
+    const newSearch = {
+      id: Date.now(),
+      name: `Búsqueda ${new Date().toLocaleDateString()}`,
+      filters,
+      createdAt: new Date().toISOString(),
+    }
+    savedSearches.push(newSearch)
+    localStorage.setItem("savedSearches", JSON.stringify(savedSearches))
+
+    toast({
+      title: "Búsqueda guardada",
+      description: "Puedes recuperarla desde búsquedas guardadas",
+    })
   }
 
   const updateArrayFilter = (key: keyof SearchFilters, value: string, checked: boolean) => {
@@ -477,14 +596,24 @@ export default function BusquedaPage() {
                     <TableBody>
                       {searchResults.map((result) => (
                         <TableRow key={result.id} className="border-slate-700 hover:bg-slate-700/50">
-                          <TableCell className="text-white font-medium">{result.id}</TableCell>
-                          <TableCell className="text-slate-300">{result.type}</TableCell>
-                          <TableCell className="text-slate-300 max-w-xs truncate">{result.address}</TableCell>
-                          <TableCell className="text-slate-300">{result.responsible}</TableCell>
-                          <TableCell className="text-slate-300">{result.date}</TableCell>
-                          <TableCell>{getStatusBadge(result.status)}</TableCell>
-                          <TableCell>{getPriorityBadge(result.priority)}</TableCell>
-                          <TableCell className="text-slate-300">{result.estimatedHours}h</TableCell>
+                          <TableCell className="text-white font-medium">
+                            <Link href={`/solicitudes/${result.id}`} className="hover:text-blue-400">
+                              {result.numero_solicitud}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-slate-300">{result.tipo_trabajo}</TableCell>
+                          <TableCell className="text-slate-300 max-w-xs truncate">{result.direccion}</TableCell>
+                          <TableCell className="text-slate-300">
+                            {result.tecnico_asignado
+                              ? `${result.tecnico_asignado.nombre} ${result.tecnico_asignado.apellido}`
+                              : "Sin asignar"}
+                          </TableCell>
+                          <TableCell className="text-slate-300">
+                            {result.fecha_estimada ? new Date(result.fecha_estimada).toLocaleDateString("es-CL") : "N/A"}
+                          </TableCell>
+                          <TableCell>{getStatusBadge(result.estado)}</TableCell>
+                          <TableCell>{getPriorityBadge(result.prioridad)}</TableCell>
+                          <TableCell className="text-slate-300">{result.horas_estimadas || "-"}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

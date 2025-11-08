@@ -57,7 +57,7 @@ export interface CreateSolicitudData {
   tipo_trabajo: string
   prioridad: "Baja" | "Media" | "Alta" | "Crítica"
   fecha_estimada?: string
-  horas_estimadas?: number
+  horas_estimadas?: number // Acepta decimales: 1.5, 2.5, etc. (se guarda como NUMERIC en BD)
   creado_por: string
 }
 
@@ -87,9 +87,9 @@ export class SolicitudesService {
       .from("solicitudes")
       .select(`
         *,
-        tecnico_asignado:profiles!solicitudes_tecnico_asignado_id_fkey(id, nombre, apellido, email),
-        supervisor:profiles!solicitudes_supervisor_id_fkey(id, nombre, apellido, email),
-        creador:profiles!solicitudes_creado_por_fkey(id, nombre, apellido, email)
+        tecnico_asignado:tecnico_asignado_id(id, nombre, apellido, email),
+        supervisor:supervisor_id(id, nombre, apellido, email),
+        creador:creado_por(id, nombre, apellido, email)
       `)
       .order("created_at", { ascending: false })
 
@@ -134,9 +134,9 @@ export class SolicitudesService {
       .from("solicitudes")
       .select(`
         *,
-        tecnico_asignado:profiles!solicitudes_tecnico_asignado_id_fkey(id, nombre, apellido, email),
-        supervisor:profiles!solicitudes_supervisor_id_fkey(id, nombre, apellido, email),
-        creador:profiles!solicitudes_creado_por_fkey(id, nombre, apellido, email)
+        tecnico_asignado:tecnico_asignado_id(id, nombre, apellido, email),
+        supervisor:supervisor_id(id, nombre, apellido, email),
+        creador:creado_por(id, nombre, apellido, email)
       `)
       .eq("id", id)
       .single()
@@ -153,25 +153,46 @@ export class SolicitudesService {
    * Crea una nueva solicitud
    */
   async create(solicitud: CreateSolicitudData): Promise<Solicitud> {
+    console.log("🔵 solicitudesService.create() llamado con:", solicitud)
+
+    // Validar datos antes de enviar
+    if (!solicitud.numero_solicitud || !solicitud.direccion || !solicitud.descripcion || !solicitud.tipo_trabajo) {
+      const errorMsg = "Faltan campos requeridos en la solicitud"
+      console.error("❌", errorMsg, solicitud)
+      throw new Error(errorMsg)
+    }
+
+    if (!solicitud.creado_por) {
+      const errorMsg = "El campo creado_por es requerido"
+      console.error("❌", errorMsg)
+      throw new Error(errorMsg)
+    }
+
+    const dataToInsert = {
+      ...solicitud,
+      estado: "Pendiente",
+    }
+
+    console.log("📤 Enviando a Supabase:", dataToInsert)
+
+    // WORKAROUND: No hacer SELECT de relaciones para evitar recursión RLS
+    // Solo insertamos y obtenemos los datos básicos
     const { data, error } = await this.supabase
       .from("solicitudes")
-      .insert({
-        ...solicitud,
-        estado: "Pendiente",
-      })
-      .select(`
-        *,
-        tecnico_asignado:profiles!solicitudes_tecnico_asignado_id_fkey(id, nombre, apellido, email),
-        supervisor:profiles!solicitudes_supervisor_id_fkey(id, nombre, apellido, email),
-        creador:profiles!solicitudes_creado_por_fkey(id, nombre, apellido, email)
-      `)
+      .insert(dataToInsert)
+      .select("*")
       .single()
 
     if (error) {
-      console.error("Error creating solicitud:", error)
+      console.error("❌ Error de Supabase al crear solicitud:", error)
+      console.error("Código de error:", error.code)
+      console.error("Mensaje:", error.message)
+      console.error("Detalles:", error.details)
+      console.error("Hint:", error.hint)
       throw error
     }
 
+    console.log("✅ Solicitud creada exitosamente:", data)
     return data
   }
 
@@ -188,9 +209,9 @@ export class SolicitudesService {
       .eq("id", id)
       .select(`
         *,
-        tecnico_asignado:profiles!solicitudes_tecnico_asignado_id_fkey(id, nombre, apellido, email),
-        supervisor:profiles!solicitudes_supervisor_id_fkey(id, nombre, apellido, email),
-        creador:profiles!solicitudes_creado_por_fkey(id, nombre, apellido, email)
+        tecnico_asignado:tecnico_asignado_id(id, nombre, apellido, email),
+        supervisor:supervisor_id(id, nombre, apellido, email),
+        creador:creado_por(id, nombre, apellido, email)
       `)
       .single()
 
@@ -226,24 +247,58 @@ export class SolicitudesService {
    * Aprueba una solicitud
    */
   async approve(id: string, aprobadoPor: string, comentarios?: string): Promise<Solicitud> {
-    return this.update(id, {
-      estado: "Aprobada",
-      aprobado_por: aprobadoPor,
-      fecha_aprobacion: new Date().toISOString(),
-      comentarios_aprobacion: comentarios,
-    })
+    console.log("🟢 Aprobando solicitud:", { id, aprobadoPor, comentarios })
+
+    // IMPORTANTE: No hacer JOINs para evitar recursión RLS
+    const { data, error } = await this.supabase
+      .from("solicitudes")
+      .update({
+        estado: "Aprobada",
+        aprobado_por: aprobadoPor,
+        fecha_aprobacion: new Date().toISOString(),
+        comentarios_aprobacion: comentarios,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select("*")
+      .single()
+
+    if (error) {
+      console.error("❌ Error al aprobar solicitud:", error)
+      throw error
+    }
+
+    console.log("✅ Solicitud aprobada exitosamente:", data)
+    return data
   }
 
   /**
    * Rechaza una solicitud
    */
   async reject(id: string, aprobadoPor: string, comentarios: string): Promise<Solicitud> {
-    return this.update(id, {
-      estado: "Rechazada",
-      aprobado_por: aprobadoPor,
-      fecha_aprobacion: new Date().toISOString(),
-      comentarios_aprobacion: comentarios,
-    })
+    console.log("🔴 Rechazando solicitud:", { id, aprobadoPor, comentarios })
+
+    // IMPORTANTE: No hacer JOINs para evitar recursión RLS
+    const { data, error } = await this.supabase
+      .from("solicitudes")
+      .update({
+        estado: "Rechazada",
+        aprobado_por: aprobadoPor,
+        fecha_aprobacion: new Date().toISOString(),
+        comentarios_aprobacion: comentarios,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select("*")
+      .single()
+
+    if (error) {
+      console.error("❌ Error al rechazar solicitud:", error)
+      throw error
+    }
+
+    console.log("✅ Solicitud rechazada exitosamente:", data)
+    return data
   }
 
   /**
@@ -275,9 +330,9 @@ export class SolicitudesService {
       .from("solicitudes")
       .select(`
         *,
-        tecnico_asignado:profiles!solicitudes_tecnico_asignado_id_fkey(id, nombre, apellido, email),
-        supervisor:profiles!solicitudes_supervisor_id_fkey(id, nombre, apellido, email),
-        creador:profiles!solicitudes_creado_por_fkey(id, nombre, apellido, email)
+        tecnico_asignado:tecnico_asignado_id(id, nombre, apellido, email),
+        supervisor:supervisor_id(id, nombre, apellido, email),
+        creador:creado_por(id, nombre, apellido, email)
       `)
       .or(`numero_solicitud.ilike.%${searchTerm}%,direccion.ilike.%${searchTerm}%,descripcion.ilike.%${searchTerm}%`)
       .order("created_at", { ascending: false })

@@ -53,10 +53,18 @@ export default function SolicitudFormDialog({
   // Validar fecha cuando cambia
   useEffect(() => {
     if (formData.fecha_estimada) {
+      // Crear fecha desde el input datetime-local
       const date = new Date(formData.fecha_estimada)
-      const validation = validateSolicitudDate(date)
-      setDateValidation(validation)
+
+      // Validar solo si la fecha es válida
+      if (!isNaN(date.getTime())) {
+        const validation = validateSolicitudDate(date)
+        setDateValidation(validation)
+      } else {
+        setDateValidation({ valid: false, errors: ["Fecha inválida"] })
+      }
     } else {
+      // Si no hay fecha, la validación es válida (campo opcional)
       setDateValidation({ valid: true, errors: [] })
     }
   }, [formData.fecha_estimada])
@@ -71,7 +79,7 @@ export default function SolicitudFormDialog({
         prioridad: solicitud.prioridad,
         horas_estimadas: solicitud.horas_estimadas,
         fecha_estimada: solicitud.fecha_estimada
-          ? new Date(solicitud.fecha_estimada).toISOString().split("T")[0]
+          ? new Date(solicitud.fecha_estimada).toISOString().slice(0, 16)
           : "",
         creado_por: userId,
       })
@@ -98,33 +106,77 @@ export default function SolicitudFormDialog({
     setError(null)
 
     try {
+      // Validar que userId esté presente
+      if (!userId) {
+        throw new Error("No se pudo identificar el usuario. Por favor, recarga la página.")
+      }
+
+      // Convertir fecha_estimada a ISO string si existe
+      const fechaEstimadaISO = formData.fecha_estimada 
+        ? new Date(formData.fecha_estimada).toISOString()
+        : undefined
+
+      // Debug log
+      console.log("📝 Datos del formulario:", formData)
+      console.log("👤 Usuario ID:", userId)
+      console.log("📅 Fecha estimada ISO:", fechaEstimadaISO)
+
       if (solicitud) {
         // Update existing
-        await solicitudesService.update(solicitud.id, {
+        console.log("🔄 Actualizando solicitud:", solicitud.id)
+        const updated = await solicitudesService.update(solicitud.id, {
           direccion: formData.direccion,
           descripcion: formData.descripcion,
           tipo_trabajo: formData.tipo_trabajo,
           prioridad: formData.prioridad,
           horas_estimadas: formData.horas_estimadas,
-          fecha_estimada: formData.fecha_estimada,
+          fecha_estimada: fechaEstimadaISO,
         })
+        console.log("✅ Solicitud actualizada:", updated)
         toast({
           title: "Solicitud actualizada",
           description: "La solicitud se actualizó correctamente.",
         })
       } else {
         // Create new
-        await solicitudesService.create(formData as CreateSolicitudData)
+        console.log("✨ Creando nueva solicitud...")
+        const newSolicitud = await solicitudesService.create({
+          ...formData,
+          fecha_estimada: fechaEstimadaISO,
+        } as CreateSolicitudData)
+        console.log("✅ Solicitud creada:", newSolicitud)
         toast({
           title: "Solicitud creada",
-          description: "La solicitud se creó correctamente.",
+          description: `Solicitud ${newSolicitud.numero_solicitud} creada correctamente.`,
         })
       }
 
       onSuccess()
       onOpenChange(false)
     } catch (err: any) {
-      const message = err?.message || "Error al guardar la solicitud"
+      console.error("❌ Error al guardar solicitud:", err)
+      console.error("Detalles del error:", {
+        message: err?.message,
+        hint: err?.hint,
+        details: err?.details,
+        code: err?.code,
+      })
+
+      let message = "Error al guardar la solicitud"
+
+      // Mensajes de error más específicos
+      if (err?.message?.includes("unique constraint")) {
+        message = "El número de solicitud ya existe. Por favor, recarga la página."
+      } else if (err?.message?.includes("foreign key")) {
+        message = "Error de referencia. Verifica que el usuario esté correctamente autenticado."
+      } else if (err?.message?.includes("violates check constraint")) {
+        message = "Datos inválidos. Verifica los valores ingresados."
+      } else if (err?.code === "PGRST301") {
+        message = "No tienes permisos para realizar esta acción."
+      } else if (err?.message) {
+        message = err.message
+      }
+
       setError(message)
       toast({
         title: "Error",
@@ -232,14 +284,21 @@ export default function SolicitudFormDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="fecha_estimada">Fecha Estimada</Label>
+              <Label htmlFor="fecha_estimada">Fecha y Hora Estimada (Opcional)</Label>
               <Input
                 id="fecha_estimada"
-                type="date"
+                type="datetime-local"
                 value={formData.fecha_estimada}
                 onChange={(e) => setFormData({ ...formData, fecha_estimada: e.target.value })}
-                className="bg-slate-700 border-slate-600"
+                className="bg-slate-700 border-slate-600 text-white"
+                min={new Date().toISOString().slice(0, 16)}
               />
+              <p className="text-xs text-slate-400">
+                📅 Horario laboral: <span className="font-medium text-slate-300">Lunes a Viernes, 8:00 AM - 5:59 PM</span>
+              </p>
+              <p className="text-xs text-slate-500">
+                Ejemplo: Para mañana a las 10 AM, selecciona la fecha de mañana y hora 10:00
+              </p>
             </div>
           </div>
 
@@ -248,12 +307,15 @@ export default function SolicitudFormDialog({
             <Alert className="bg-amber-900/20 border-amber-700">
               <AlertTriangle className="h-4 w-4 text-amber-400" />
               <AlertDescription className="text-amber-300">
-                <p className="font-medium mb-1">Fecha no válida:</p>
-                <ul className="list-disc list-inside text-sm">
+                <p className="font-medium mb-2">⚠️ Fecha fuera de horario laboral:</p>
+                <ul className="list-disc list-inside text-sm space-y-1">
                   {dateValidation.errors.map((err, idx) => (
                     <li key={idx}>{err}</li>
                   ))}
                 </ul>
+                <p className="text-xs mt-2 text-amber-400">
+                  💡 Puedes continuar de todas formas o ajustar la fecha al horario sugerido.
+                </p>
               </AlertDescription>
             </Alert>
           )}
@@ -262,7 +324,7 @@ export default function SolicitudFormDialog({
             <Alert className="bg-green-900/20 border-green-700">
               <CheckCircle className="h-4 w-4 text-green-400" />
               <AlertDescription className="text-green-300">
-                Fecha válida - En horario laboral
+                ✅ Fecha válida - En horario laboral
               </AlertDescription>
             </Alert>
           )}

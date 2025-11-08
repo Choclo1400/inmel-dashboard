@@ -16,6 +16,7 @@ import { solicitudesService, type Solicitud } from "@/lib/services/solicitudesSe
 import { notificationsService } from "@/lib/services/notificationsService"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/use-toast"
+import DashboardLayout from "@/components/layout/dashboard-layout"
 import Link from "next/link"
 
 const getPriorityBadge = (priority: string) => {
@@ -139,6 +140,33 @@ export default function AprobacionesPage() {
     }
   }, [currentUserId])
 
+  // Realtime subscription for solicitudes updates
+  useEffect(() => {
+    const supabase = createClient()
+    
+    const channel = supabase
+      .channel('solicitudes-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events: INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'solicitudes'
+        },
+        (payload: any) => {
+          console.log('📡 Solicitud cambió en tiempo real:', payload)
+          // Reload data when any change occurs
+          loadSolicitudes()
+        }
+      )
+      .subscribe()
+
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [currentUserId])
+
   const handleApproval = async (action: "approve" | "reject") => {
     if (!selectedRequest || !approvalComments.trim() || !currentUserId) return
 
@@ -147,9 +175,16 @@ export default function AprobacionesPage() {
 
       if (action === "approve") {
         await solicitudesService.approve(selectedRequest.id, currentUserId, approvalComments)
+
+        // Show success toast with suggestion to schedule
+        const message = selectedRequest.tecnico_asignado_id
+          ? `La solicitud ${selectedRequest.numero_solicitud} ha sido aprobada. Ahora puedes programarla desde la página de Solicitudes.`
+          : `La solicitud ${selectedRequest.numero_solicitud} ha sido aprobada. Recuerda asignar un técnico para poder programarla.`
+
         toast({
-          title: "Solicitud aprobada",
-          description: `La solicitud ${selectedRequest.numero_solicitud} ha sido aprobada`,
+          title: "✅ Solicitud aprobada",
+          description: message,
+          duration: 8000, // Mostrar por más tiempo
         })
 
         // Send notification to requester
@@ -159,7 +194,7 @@ export default function AprobacionesPage() {
             title: "Solicitud Aprobada",
             message: `Tu solicitud ${selectedRequest.numero_solicitud} ha sido aprobada`,
             type: "success",
-            related_id: selectedRequest.id,
+            solicitud_id: selectedRequest.id,
           })
         }
       } else {
@@ -176,16 +211,16 @@ export default function AprobacionesPage() {
             title: "Solicitud Rechazada",
             message: `Tu solicitud ${selectedRequest.numero_solicitud} ha sido rechazada`,
             type: "error",
-            related_id: selectedRequest.id,
+            solicitud_id: selectedRequest.id,
           })
         }
       }
 
-      // Reset state and reload
+      // Reset state - realtime subscription will handle the reload
       setShowDialog(false)
       setSelectedRequest(null)
       setApprovalComments("")
-      loadSolicitudes()
+      // No need to call loadSolicitudes() - realtime will trigger it
     } catch (error) {
       console.error("Error processing approval:", error)
       toast({
@@ -222,24 +257,17 @@ export default function AprobacionesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700 px-8 py-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Centro de Aprobaciones</h1>
-            <p className="text-slate-400 text-sm">Gestión de aprobaciones y rechazos de solicitudes técnicas</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge className="bg-orange-600 text-white hover:bg-orange-600">
-              {stats.pending} Pendientes
-            </Badge>
-          </div>
+    <DashboardLayout 
+      title="Centro de Aprobaciones" 
+      subtitle="Gestión de aprobaciones y rechazos de solicitudes técnicas"
+    >
+      <div className="space-y-6">
+        {/* Stats Badge */}
+        <div className="flex justify-end">
+          <Badge className="bg-orange-600 text-white hover:bg-orange-600">
+            {stats.pending} Pendientes
+          </Badge>
         </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-4 gap-6 mb-8">
           <Card className="bg-slate-800 border-slate-700">
@@ -560,6 +588,6 @@ export default function AprobacionesPage() {
           </AlertDescription>
         </Alert>
       </div>
-    </div>
+    </DashboardLayout>
   )
 }

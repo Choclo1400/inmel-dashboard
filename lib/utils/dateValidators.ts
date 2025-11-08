@@ -1,4 +1,4 @@
-import { schedulingLite } from "../services/scheduling-lite"
+import { checkAvailability, getDayAvailableSlots } from "../services/scheduling-lite"
 
 export interface TimeSlot {
   start: string
@@ -28,14 +28,16 @@ export async function validateTechnicianSchedule(
 
   try {
     // Verificar disponibilidad
-    const isAvailable = await schedulingLite.checkAvailability(technicianId, startDate, endDate)
+    const startISO = startDate.toISOString()
+    const endISO = endDate.toISOString()
+    const isAvailable = await checkAvailability(technicianId, startISO, endISO)
 
     if (!isAvailable) {
       result.isValid = false
       result.conflicts.push("El técnico no está disponible en este horario")
 
       // Obtener slots disponibles del mismo día
-      const daySlots = await schedulingLite.getDayAvailableSlots(technicianId, startDate)
+      const daySlots = await getDayAvailableSlots(technicianId, startDate)
       result.suggestions = daySlots.map((slot) => ({
         start: slot.start,
         end: slot.end,
@@ -100,7 +102,7 @@ export function formatDateForDB(date: Date): string {
  */
 export async function getNextAvailableSlot(technicianId: string, preferredDate: Date): Promise<TimeSlot | null> {
   try {
-    const slots = await schedulingLite.getDayAvailableSlots(technicianId, preferredDate)
+    const slots = await getDayAvailableSlots(technicianId, preferredDate)
 
     if (slots.length > 0) {
       return {
@@ -118,7 +120,7 @@ export async function getNextAvailableSlot(technicianId: string, preferredDate: 
     let attempts = 0
     while (attempts < 7) {
       if (isBusinessHours(nextDay)) {
-        const nextSlots = await schedulingLite.getDayAvailableSlots(technicianId, nextDay)
+        const nextSlots = await getDayAvailableSlots(technicianId, nextDay)
         if (nextSlots.length > 0) {
           return {
             start: nextSlots[0].start,
