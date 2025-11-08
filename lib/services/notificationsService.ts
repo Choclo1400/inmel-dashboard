@@ -174,6 +174,166 @@ export class NotificationsService {
   unsubscribeFromUserNotifications(userId: string) {
     return this.supabase.channel(`notifications:${userId}`).unsubscribe()
   }
+
+  // ============================================================
+  // TEMPLATES DE NOTIFICACIONES PARA SUPERVISORES
+  // ============================================================
+
+  /**
+   * Notifica a un supervisor cuando se le asigna una nueva solicitud
+   */
+  async notifySupervisorNewRequest(
+    supervisorId: string,
+    solicitudNumero: string,
+    solicitudId: string
+  ): Promise<Notification> {
+    return this.create({
+      user_id: supervisorId,
+      title: "Nueva Solicitud Asignada",
+      message: `Se le ha asignado la solicitud ${solicitudNumero} para revisión.`,
+      type: "info",
+      solicitud_id: solicitudId,
+    })
+  }
+
+  /**
+   * Notifica cuando una solicitud crítica requiere atención urgente
+   */
+  async notifySupervisorCriticalRequest(
+    supervisorId: string,
+    solicitudNumero: string,
+    solicitudId: string
+  ): Promise<Notification> {
+    return this.create({
+      user_id: supervisorId,
+      title: "Solicitud Crítica Pendiente",
+      message: `La solicitud crítica ${solicitudNumero} requiere su revisión inmediata.`,
+      type: "error",
+      solicitud_id: solicitudId,
+    })
+  }
+
+  /**
+   * Notifica al creador cuando el supervisor solicita más información
+   */
+  async notifyRequestorInfoNeeded(
+    creadorId: string,
+    solicitudNumero: string,
+    mensaje: string,
+    solicitudId: string
+  ): Promise<Notification> {
+    return this.create({
+      user_id: creadorId,
+      title: "Información Adicional Requerida",
+      message: `El supervisor requiere información adicional para la solicitud ${solicitudNumero}: ${mensaje}`,
+      type: "warning",
+      solicitud_id: solicitudId,
+    })
+  }
+
+  /**
+   * Notifica al técnico cuando se le asigna un trabajo
+   */
+  async notifyTechnicianAssignment(
+    technicoId: string,
+    solicitudNumero: string,
+    direccion: string,
+    solicitudId: string
+  ): Promise<Notification> {
+    return this.create({
+      user_id: technicoId,
+      title: "Nueva Solicitud Asignada",
+      message: `Se le ha asignado la solicitud ${solicitudNumero} - ${direccion}`,
+      type: "info",
+      solicitud_id: solicitudId,
+    })
+  }
+
+  /**
+   * Notifica al creador cuando su solicitud es aprobada
+   */
+  async notifyRequestorApproved(
+    creadorId: string,
+    solicitudNumero: string,
+    comentarios: string | undefined,
+    solicitudId: string
+  ): Promise<Notification> {
+    return this.create({
+      user_id: creadorId,
+      title: "Solicitud Aprobada",
+      message: `Su solicitud ${solicitudNumero} ha sido aprobada.${comentarios ? ` Comentarios: ${comentarios}` : ""}`,
+      type: "success",
+      solicitud_id: solicitudId,
+    })
+  }
+
+  /**
+   * Notifica al creador cuando su solicitud es rechazada
+   */
+  async notifyRequestorRejected(
+    creadorId: string,
+    solicitudNumero: string,
+    razon: string,
+    solicitudId: string
+  ): Promise<Notification> {
+    return this.create({
+      user_id: creadorId,
+      title: "Solicitud Rechazada",
+      message: `Su solicitud ${solicitudNumero} ha sido rechazada. Razón: ${razon}`,
+      type: "error",
+      solicitud_id: solicitudId,
+    })
+  }
+
+  /**
+   * Notifica al supervisor cuando un trabajo bajo su supervisión es completado
+   */
+  async notifySupervisorWorkCompleted(
+    supervisorId: string,
+    solicitudNumero: string,
+    solicitudId: string
+  ): Promise<Notification> {
+    return this.create({
+      user_id: supervisorId,
+      title: "Trabajo Completado",
+      message: `El trabajo ${solicitudNumero} ha sido completado y está listo para validación final.`,
+      type: "success",
+      solicitud_id: solicitudId,
+    })
+  }
+
+  /**
+   * Notifica al supervisor sobre conflictos de programación
+   */
+  async notifySupervisorSchedulingConflict(
+    supervisorId: string,
+    solicitudNumero: string,
+    detalles: string,
+    solicitudId: string
+  ): Promise<Notification> {
+    return this.create({
+      user_id: supervisorId,
+      title: "Conflicto de Programación Detectado",
+      message: `Conflicto en la solicitud ${solicitudNumero}: ${detalles}`,
+      type: "warning",
+      solicitud_id: solicitudId,
+    })
+  }
+
+  /**
+   * Notifica recordatorio de solicitudes pendientes de revisión
+   */
+  async notifySupervisorPendingReminder(
+    supervisorId: string,
+    cantidadPendientes: number
+  ): Promise<Notification> {
+    return this.create({
+      user_id: supervisorId,
+      title: "Solicitudes Pendientes de Revisión",
+      message: `Tiene ${cantidadPendientes} solicitud${cantidadPendientes !== 1 ? "es" : ""} pendiente${cantidadPendientes !== 1 ? "s" : ""} de revisión.`,
+      type: "warning",
+    })
+  }
 }
 
 export const notificationsService = new NotificationsService()

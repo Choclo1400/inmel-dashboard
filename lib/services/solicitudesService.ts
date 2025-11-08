@@ -17,7 +17,7 @@ export interface Solicitud {
   descripcion: string
   tipo_trabajo: string
   prioridad: "Baja" | "Media" | "Alta" | "Crítica"
-  estado: "Pendiente" | "En Progreso" | "Completada" | "Rechazada" | "Aprobada"
+  estado: "Pendiente" | "En Progreso" | "Completada" | "Rechazada" | "Aprobada" | "Requiere Información"
   fecha_creacion: string
   fecha_estimada?: string
   horas_estimadas?: number
@@ -66,7 +66,7 @@ export interface UpdateSolicitudData {
   descripcion?: string
   tipo_trabajo?: string
   prioridad?: "Baja" | "Media" | "Alta" | "Crítica"
-  estado?: "Pendiente" | "En Progreso" | "Completada" | "Rechazada" | "Aprobada"
+  estado?: "Pendiente" | "En Progreso" | "Completada" | "Rechazada" | "Aprobada" | "Requiere Información"
   fecha_estimada?: string
   horas_estimadas?: number
   tecnico_asignado_id?: string
@@ -238,7 +238,7 @@ export class SolicitudesService {
    */
   async updateStatus(
     id: string,
-    estado: "Pendiente" | "En Progreso" | "Completada" | "Rechazada" | "Aprobada",
+    estado: "Pendiente" | "En Progreso" | "Completada" | "Rechazada" | "Aprobada" | "Requiere Información",
   ): Promise<Solicitud> {
     return this.update(id, { estado })
   }
@@ -370,6 +370,63 @@ export class SolicitudesService {
     }
 
     return stats
+  }
+
+  /**
+   * Solicita información adicional sobre una solicitud
+   */
+  async requestMoreInfo(id: string, supervisorId: string, mensaje: string): Promise<Solicitud> {
+    console.log("ℹ️ Solicitando más información para solicitud:", { id, supervisorId, mensaje })
+
+    const { data, error } = await this.supabase
+      .from("solicitudes")
+      .update({
+        estado: "Requiere Información",
+        aprobado_por: supervisorId,
+        fecha_aprobacion: new Date().toISOString(),
+        comentarios_aprobacion: mensaje,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select("*")
+      .single()
+
+    if (error) {
+      console.error("❌ Error al solicitar información:", error)
+      throw error
+    }
+
+    console.log("✅ Información solicitada exitosamente:", data)
+    return data
+  }
+
+  /**
+   * Asigna un supervisor a una solicitud manualmente
+   */
+  async assignSupervisor(solicitudId: string, supervisorId: string): Promise<Solicitud> {
+    console.log("👤 Asignando supervisor:", { solicitudId, supervisorId })
+
+    return this.update(solicitudId, {
+      supervisor_id: supervisorId,
+    })
+  }
+
+  /**
+   * Obtiene lista de supervisores activos
+   */
+  async getSupervisors(): Promise<Array<{ id: string; nombre: string; apellido: string; email: string }>> {
+    const { data, error } = await this.supabase
+      .from("profiles")
+      .select("id, nombre, apellido, email")
+      .eq("rol", "Supervisor")
+      .order("nombre", { ascending: true })
+
+    if (error) {
+      console.error("Error fetching supervisors:", error)
+      throw error
+    }
+
+    return data || []
   }
 }
 
