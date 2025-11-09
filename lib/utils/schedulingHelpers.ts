@@ -96,12 +96,21 @@ export async function getTechnicianWeekAvailability(technicianId: string, weekSt
     currentDay.setDate(currentDay.getDate() + i)
 
     try {
-      const slots = await getDayAvailableSlots(technicianId, currentDay)
+      // Convertir Date a string YYYY-MM-DD antes de pasar a getDayAvailableSlots
+      const dateString = currentDay.toISOString().split("T")[0]
+      const allSlots = await getDayAvailableSlots(technicianId, dateString)
+
+      // Filtrar solo los slots disponibles
+      const availableSlots = allSlots.filter(slot => slot.available)
+
       weekDays.push({
-        date: currentDay.toISOString().split("T")[0],
+        date: dateString,
         dayName: currentDay.toLocaleDateString("es-CL", { weekday: "long" }),
-        availableSlots: slots.length,
-        slots: slots,
+        availableSlots: availableSlots.length,
+        slots: availableSlots.map(slot => ({
+          start: new Date(slot.start).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" }),
+          end: new Date(slot.end).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })
+        })),
       })
     } catch (error) {
       weekDays.push({

@@ -137,7 +137,7 @@ export class ClientesService {
   }
 
   /**
-   * Elimina un cliente (soft delete)
+   * Elimina un cliente (soft delete - desactivar)
    */
   async delete(id: string): Promise<void> {
     const { error } = await this.supabase
@@ -147,6 +147,19 @@ export class ClientesService {
 
     if (error) {
       console.error("Error deleting client:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Elimina un cliente permanentemente (hard delete)
+   * SOLO para administradores
+   */
+  async deletePermanently(id: string): Promise<void> {
+    const { error } = await this.supabase.from("clients").delete().eq("id", id)
+
+    if (error) {
+      console.error("Error deleting client permanently:", error)
       throw error
     }
   }

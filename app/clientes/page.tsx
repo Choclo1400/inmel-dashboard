@@ -13,7 +13,7 @@ import DashboardLayout from "@/components/layout/dashboard-layout"
 import { clientesService, type Client } from "@/lib/services/clientesService"
 import ClientFormDialog from "@/components/clients/client-form-dialog"
 import ClientDeleteDialog from "@/components/clients/client-delete-dialog"
-import ServiceRequestDialog from "@/components/scheduling/service-request-dialog"
+import CreateRequestDialog from "@/components/clients/create-request-dialog"
 import { ClientsPermission } from "@/components/rbac/PermissionGuard"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -123,7 +123,7 @@ function ClientesPageClient() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         <Card className="bg-slate-800 border-slate-700">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -187,7 +187,7 @@ function ClientesPageClient() {
           <CardTitle className="text-white">Filtros y Búsqueda</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -200,7 +200,7 @@ function ClientesPageClient() {
               </div>
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white">
+              <SelectTrigger className="w-full sm:w-48 bg-slate-700 border-slate-600 text-white">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent className="bg-slate-700 border-slate-600">
@@ -210,7 +210,7 @@ function ClientesPageClient() {
               </SelectContent>
             </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white">
+              <SelectTrigger className="w-full sm:w-48 bg-slate-700 border-slate-600 text-white">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent className="bg-slate-700 border-slate-600">
@@ -232,6 +232,7 @@ function ClientesPageClient() {
           {isLoading ? (
             <div className="text-center py-8 text-slate-400">Cargando clientes...</div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-700">
@@ -276,11 +277,11 @@ function ClientesPageClient() {
                         <ClientsPermission action="read">
                           <Button
                             size="sm"
-                            className="bg-green-600 hover:bg-green-700 text-white"
+                            className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm whitespace-nowrap"
                             onClick={() => handleCreateRequest(client)}
                           >
-                            <Calendar className="w-4 h-4 mr-1" />
-                            Solicitud
+                            <Calendar className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                            <span className="hidden sm:inline">Solicitud</span>
                           </Button>
                         </ClientsPermission>
 
@@ -318,6 +319,7 @@ function ClientesPageClient() {
                 )}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -339,8 +341,8 @@ function ClientesPageClient() {
         onSuccess={handleSuccess}
       />
 
-      {/* NUEVO: Dialog de solicitud con scheduling */}
-      <ServiceRequestDialog
+      {/* Dialog de solicitud simplificado */}
+      <CreateRequestDialog
         open={showRequestDialog}
         onOpenChange={setShowRequestDialog}
         client={selectedClientForRequest}

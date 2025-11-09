@@ -5,11 +5,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import type { User } from '@supabase/supabase-js'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Menu, X } from 'lucide-react'
 import AppSidebar from './app-sidebar'
 import AppHeader from './app-header'
 import { Toaster } from '@/components/ui/toaster'
 import { RoleProvider } from '@/components/rbac/RoleProvider'
+import { Button } from '@/components/ui/button'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -22,6 +23,7 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Memoiza el cliente Supabase para no recrearlo en cada render
   const supabase = useMemo(() => {
@@ -164,14 +166,39 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
   return (
     <RoleProvider value={{ role: userRole as any, userId: user.id }}>
       <div className="min-h-screen bg-slate-900 text-white">
-        <AppSidebar user={user} />
+        {/* Mobile Menu Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed top-4 left-4 z-50 lg:hidden bg-slate-800 hover:bg-slate-700"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+        >
+          {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </Button>
 
-        {/* Main Content */}
-        <div className="ml-64 min-h-screen">
+        {/* Overlay para móvil */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Sidebar - Desktop fijo, Mobile overlay */}
+        <div className={`
+          fixed left-0 top-0 h-full w-64 bg-slate-800 z-40 transition-transform duration-300
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0
+        `}>
+          <AppSidebar user={user} />
+        </div>
+
+        {/* Main Content - Responsive margin */}
+        <div className="min-h-screen lg:ml-64">
           <AppHeader title={title} subtitle={subtitle} user={user} />
 
-          {/* Page Content */}
-          <main className="p-8">{children}</main>
+          {/* Page Content - Responsive padding */}
+          <main className="p-4 sm:p-6 lg:p-8">{children}</main>
         </div>
         <Toaster />
       </div>

@@ -34,10 +34,10 @@ export default function AppSidebar({ user }: Props) {
   const email = user?.email ?? ""
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 bg-slate-800 text-white">
-      <div className="p-4 border-b border-slate-700">
-        <div className="text-lg font-semibold">Inmel</div>
-        <div className="text-sm text-slate-300 mt-1">{role || email}</div>
+    <>
+      <div className="p-4 border-b border-slate-700 flex flex-col justify-center h-[73px]">
+        <div className="text-lg font-semibold leading-tight">Inmel</div>
+        <div className="text-sm text-slate-300 leading-tight mt-0.5">{role || email}</div>
       </div>
 
       <nav className="p-4">
@@ -64,6 +64,6 @@ export default function AppSidebar({ user }: Props) {
           </li>
         </ul>
       </nav>
-    </aside>
+    </>
   )
 }

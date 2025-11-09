@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Plus, MoreHorizontal, Edit, User, Wrench, Clock, Calendar } from "lucide-react"
+import { Search, Plus, MoreHorizontal, Edit, User, Wrench, Clock, Calendar, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,6 +15,8 @@ import { tecnicosService, type Technician, type TechnicianStats } from "@/lib/se
 import { useToast } from "@/components/ui/use-toast"
 import { getTechnicianWeekAvailability } from "@/lib/utils/schedulingHelpers"
 import TechnicianFormDialog from "@/components/technicians/technician-form-dialog"
+import TechnicianDeleteDialog from "@/components/technicians/technician-delete-dialog"
+import { TechniciansPermission } from "@/components/rbac/PermissionGuard"
 
 const getStatusBadge = (isActive: boolean) => {
   return isActive ? (
@@ -34,6 +36,7 @@ export default function TecnicosPage() {
   const [showAvailabilityDialog, setShowAvailabilityDialog] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [weekAvailability, setWeekAvailability] = useState<any[]>([])
   const [loadingAvailability, setLoadingAvailability] = useState(false)
   const { toast } = useToast()
@@ -99,8 +102,17 @@ export default function TecnicosPage() {
     setShowEditDialog(true)
   }
 
+  const handleDelete = (tech: Technician) => {
+    setSelectedTechnician(tech)
+    setShowDeleteDialog(true)
+  }
+
   const handleSuccess = () => {
     loadTechnicians()
+    toast({
+      title: "Éxito",
+      description: "Operación completada correctamente",
+    })
   }
 
   return (
@@ -117,7 +129,7 @@ export default function TecnicosPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
         <Card className="bg-slate-800 border-slate-700">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -167,7 +179,7 @@ export default function TecnicosPage() {
           <CardTitle className="text-white">Filtros y Búsqueda</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -180,7 +192,7 @@ export default function TecnicosPage() {
               </div>
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white">
+              <SelectTrigger className="w-full sm:w-48 bg-slate-700 border-slate-600 text-white">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent className="bg-slate-700 border-slate-600">
@@ -204,6 +216,7 @@ export default function TecnicosPage() {
           ) : filteredTechnicians.length === 0 ? (
             <div className="text-center py-8 text-slate-400">No se encontraron técnicos</div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-700">
@@ -262,13 +275,22 @@ export default function TecnicosPage() {
                             <Calendar className="w-4 h-4 mr-2" />
                             Ver Disponibilidad
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             className="text-slate-300 hover:text-white hover:bg-slate-600"
                             onClick={() => handleEdit(tech)}
                           >
                             <Edit className="w-4 h-4 mr-2" />
                             Editar
                           </DropdownMenuItem>
+                          <TechniciansPermission action="delete">
+                            <DropdownMenuItem
+                              className="text-red-400 hover:text-red-300 hover:bg-slate-600"
+                              onClick={() => handleDelete(tech)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Eliminar
+                            </DropdownMenuItem>
+                          </TechniciansPermission>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -276,6 +298,7 @@ export default function TecnicosPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -334,6 +357,14 @@ export default function TecnicosPage() {
       <TechnicianFormDialog
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
+        technician={selectedTechnician}
+        onSuccess={handleSuccess}
+      />
+
+      {/* Delete Dialog */}
+      <TechnicianDeleteDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
         technician={selectedTechnician}
         onSuccess={handleSuccess}
       />
