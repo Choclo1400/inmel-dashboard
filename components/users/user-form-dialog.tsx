@@ -123,16 +123,37 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
           }
         })
 
+        // Preparar datos de actualización
+        const updateData: any = {
+          nombre: formData.nombre,
+          apellido: formData.apellido,
+          telefono: formData.telefono,
+          rol: formData.rol,
+          updated_at: new Date().toISOString(),
+        }
+
+        // Solo incluir 'activo' si existe en la base de datos
+        // (Se agrega ejecutando scripts/fix_profiles_update_issue.sql)
+        try {
+          // Verificar si la columna 'activo' existe haciendo una query de prueba
+          const { error: testError } = await supabase
+            .from("profiles")
+            .select("activo")
+            .limit(1)
+
+          if (!testError) {
+            // La columna existe, podemos usarla
+            updateData.activo = formData.activo
+          } else {
+            console.warn('Campo "activo" no existe en la base de datos. Ejecuta scripts/fix_profiles_update_issue.sql')
+          }
+        } catch (e) {
+          console.warn('No se pudo verificar campo "activo"')
+        }
+
         const { data, error } = await supabase
           .from("profiles")
-          .update({
-            nombre: formData.nombre,
-            apellido: formData.apellido,
-            telefono: formData.telefono,
-            rol: formData.rol,
-            activo: formData.activo,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq("id", user.id)
           .select()
 
