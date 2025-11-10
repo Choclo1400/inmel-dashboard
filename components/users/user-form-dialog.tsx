@@ -110,7 +110,20 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
     try {
       if (user) {
         const supabase = createClient()
-        const { error } = await supabase
+
+        // Log para debugging
+        console.log('Actualizando usuario:', {
+          userId: user.id,
+          updates: {
+            nombre: formData.nombre,
+            apellido: formData.apellido,
+            telefono: formData.telefono,
+            rol: formData.rol,
+            activo: formData.activo,
+          }
+        })
+
+        const { data, error } = await supabase
           .from("profiles")
           .update({
             nombre: formData.nombre,
@@ -121,7 +134,14 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
             updated_at: new Date().toISOString(),
           })
           .eq("id", user.id)
-        if (error) throw error
+          .select()
+
+        if (error) {
+          console.error('Error al actualizar perfil:', error)
+          throw new Error(`Error de base de datos: ${error.message} (Código: ${error.code})`)
+        }
+
+        console.log('Usuario actualizado exitosamente:', data)
         toast({ title: "Usuario actualizado", description: "Los cambios se guardaron correctamente." })
       } else {
         const payload = {
