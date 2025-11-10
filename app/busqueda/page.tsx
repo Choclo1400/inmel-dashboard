@@ -82,7 +82,16 @@ export default function BusquedaPage() {
   const [searchResults, setSearchResults] = useState<Solicitud[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [savedSearches, setSavedSearches] = useState<any[]>([])
   const { toast } = useToast()
+
+  // Cargar búsquedas guardadas desde localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = JSON.parse(localStorage.getItem("savedSearches") || "[]")
+      setSavedSearches(saved)
+    }
+  }, [])
 
   // Cargar todas las solicitudes al inicio
   useEffect(() => {
@@ -244,15 +253,16 @@ export default function BusquedaPage() {
 
   const handleSaveSearch = () => {
     // Guardar búsqueda en localStorage
-    const savedSearches = JSON.parse(localStorage.getItem("savedSearches") || "[]")
+    const currentSavedSearches = JSON.parse(localStorage.getItem("savedSearches") || "[]")
     const newSearch = {
       id: Date.now(),
       name: `Búsqueda ${new Date().toLocaleDateString()}`,
       filters,
       createdAt: new Date().toISOString(),
     }
-    savedSearches.push(newSearch)
-    localStorage.setItem("savedSearches", JSON.stringify(savedSearches))
+    currentSavedSearches.push(newSearch)
+    localStorage.setItem("savedSearches", JSON.stringify(currentSavedSearches))
+    setSavedSearches(currentSavedSearches)
 
     toast({
       title: "Búsqueda guardada",
