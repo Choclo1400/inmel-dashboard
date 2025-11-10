@@ -18,14 +18,9 @@ export const NAV_ITEMS: Array<{
   // TÉCNICO: Solicitudes asignadas, actualizaciones
   { id: 'mis-solicitudes', label: 'Mis Solicitudes', href: '/mis-solicitudes', roles: ['technician'] },
   { id: 'mis-tareas',      label: 'Mis Tareas',      href: '/mis-tareas',      roles: ['technician'] },
-  
+
   // ADMINISTRADOR EXCLUSIVO: Configuración del sistema
-  { id: 'catalogos',       label: 'Catálogos',       href: '/catalogos',       roles: ['admin'] },
   { id: 'usuarios',        label: 'Usuarios',        href: '/usuarios',        roles: ['admin'] },
-  { id: 'auditoria',       label: 'Auditoría',       href: '/auditoria',       roles: ['admin'] },
-  
-  // TODOS: Perfil personal
-  { id: 'perfil',          label: 'Mi Perfil',       href: '/perfil',          roles: ['admin', 'supervisor', 'manager', 'technician', 'operator'] },
 ]
 
 export type AppRole = 'admin' | 'supervisor' | 'manager' | 'technician' | 'operator' | 'system'

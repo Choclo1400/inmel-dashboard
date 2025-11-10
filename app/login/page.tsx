@@ -3,12 +3,15 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Eye, EyeOff, Lock, Mail, Shield } from "lucide-react"
+import { Eye, EyeOff, Lock, Mail, Shield, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 export default function LoginPage() {
@@ -16,11 +19,72 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+  const supabase = createClient()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Implement authentication logic
-    console.log("[v0] Login attempt:", { email, password, rememberMe })
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      console.log("🔐 Intentando login con:", email)
+
+      // Autenticar con Supabase
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (authError) {
+        console.error("❌ Error de autenticación:", authError)
+        throw authError
+      }
+
+      if (!data.user) {
+        throw new Error("No se pudo obtener la información del usuario")
+      }
+
+      console.log("✅ Login exitoso:", data.user.email)
+
+      // Obtener perfil del usuario para verificar rol
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("rol, nombre, apellido")
+        .eq("id", data.user.id)
+        .single()
+
+      if (profileError) {
+        console.warn("⚠️ No se pudo cargar el perfil:", profileError)
+      }
+
+      console.log("👤 Perfil del usuario:", profile)
+
+      // Redireccionar al dashboard
+      router.push("/dashboard")
+      router.refresh()
+    } catch (err: any) {
+      console.error("❌ Error completo:", err)
+
+      // Mensajes de error más amigables
+      let errorMessage = "Error al iniciar sesión"
+
+      if (err.message?.includes("Invalid login credentials")) {
+        errorMessage = "Credenciales inválidas. Verifica tu correo y contraseña."
+      } else if (err.message?.includes("Email not confirmed")) {
+        errorMessage = "Por favor confirma tu correo electrónico antes de iniciar sesión."
+      } else if (err.message?.includes("network")) {
+        errorMessage = "Error de conexión. Verifica tu conexión a internet."
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+
+      setError(errorMessage)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -104,8 +168,26 @@ export default function LoginPage() {
                 </Link>
               </div>
 
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                Iniciar Sesión
+              {error && (
+                <Alert className="bg-red-900/20 border-red-700">
+                  <AlertCircle className="h-4 w-4 text-red-400" />
+                  <AlertDescription className="text-red-300">{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Iniciando sesión...
+                  </>
+                ) : (
+                  "Iniciar Sesión"
+                )}
               </Button>
             </form>
 

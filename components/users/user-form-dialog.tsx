@@ -16,27 +16,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/use-toast"
 
-// RBAC roles
-type RbacRole = "ADMIN" | "SUPERVISOR" | "GESTOR" | "TECNICO" | "SYSTEM"
+// Roles válidos según la base de datos
+type UserRole = "Administrador" | "Supervisor" | "Gestor" | "Empleado"
 
-const toRbac = (v: string): RbacRole => {
-  switch (v) {
-    case "Administrador":
+// Función para normalizar roles al formato de la BD
+const normalizeRole = (v: string): UserRole => {
+  const normalized = v.toUpperCase()
+  switch (normalized) {
+    case "ADMINISTRADOR":
     case "ADMIN":
-      return "ADMIN"
-    case "Supervisor":
+      return "Administrador"
     case "SUPERVISOR":
-      return "SUPERVISOR"
-    case "Gestor":
+      return "Supervisor"
     case "GESTOR":
-      return "GESTOR"
-    case "Empleado":
+    case "MANAGER":
+      return "Gestor"
+    case "EMPLEADO":
     case "TECNICO":
-      return "TECNICO"
-    case "SYSTEM":
-      return "SYSTEM"
+    case "TECHNICIAN":
+    case "OPERATOR":
+      return "Empleado"
     default:
-      return "TECNICO"
+      return "Empleado"
   }
 }
 
@@ -53,7 +54,7 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
     nombre: user?.nombre || "",
     apellido: user?.apellido || "",
     telefono: user?.telefono || "",
-    rol: toRbac(user?.rol || "Empleado") as RbacRole,
+    rol: normalizeRole(user?.rol || "Empleado") as UserRole,
     activo: user?.activo ?? true,
     password: "",
     confirmPassword: "",
@@ -69,7 +70,7 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
         nombre: user.nombre || "",
         apellido: user.apellido || "",
         telefono: user.telefono || "",
-        rol: toRbac(user.rol || "Empleado"),
+        rol: normalizeRole(user.rol || "Empleado"),
         activo: user.activo ?? true,
         password: "",
         confirmPassword: "",
@@ -80,7 +81,7 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
         nombre: "",
         apellido: "",
         telefono: "",
-        rol: "TECNICO",
+        rol: "Empleado",
         activo: true,
         password: "",
         confirmPassword: "",
@@ -109,18 +110,59 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
     try {
       if (user) {
         const supabase = createClient()
-        const { error } = await supabase
-          .from("profiles")
-          .update({
+
+        // Log para debugging
+        console.log('Actualizando usuario:', {
+          userId: user.id,
+          updates: {
             nombre: formData.nombre,
             apellido: formData.apellido,
             telefono: formData.telefono,
             rol: formData.rol,
             activo: formData.activo,
-            updated_at: new Date().toISOString(),
-          })
+          }
+        })
+
+        // Preparar datos de actualización
+        const updateData: any = {
+          nombre: formData.nombre,
+          apellido: formData.apellido,
+          telefono: formData.telefono,
+          rol: formData.rol,
+          updated_at: new Date().toISOString(),
+        }
+
+        // Solo incluir 'activo' si existe en la base de datos
+        // (Se agrega ejecutando scripts/fix_profiles_update_issue.sql)
+        try {
+          // Verificar si la columna 'activo' existe haciendo una query de prueba
+          const { error: testError } = await supabase
+            .from("profiles")
+            .select("activo")
+            .limit(1)
+
+          if (!testError) {
+            // La columna existe, podemos usarla
+            updateData.activo = formData.activo
+          } else {
+            console.warn('Campo "activo" no existe en la base de datos. Ejecuta scripts/fix_profiles_update_issue.sql')
+          }
+        } catch (e) {
+          console.warn('No se pudo verificar campo "activo"')
+        }
+
+        const { data, error } = await supabase
+          .from("profiles")
+          .update(updateData)
           .eq("id", user.id)
-        if (error) throw error
+          .select()
+
+        if (error) {
+          console.error('Error al actualizar perfil:', error)
+          throw new Error(`Error de base de datos: ${error.message} (Código: ${error.code})`)
+        }
+
+        console.log('Usuario actualizado exitosamente:', data)
         toast({ title: "Usuario actualizado", description: "Los cambios se guardaron correctamente." })
       } else {
         const payload = {
@@ -149,7 +191,7 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
         nombre: "",
         apellido: "",
         telefono: "",
-        rol: "TECNICO",
+        rol: "Empleado",
         activo: true,
         password: "",
         confirmPassword: "",
@@ -223,15 +265,15 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
             </div>
             <div className="space-y-2">
               <Label htmlFor="rol">Rol</Label>
-              <Select value={formData.rol} onValueChange={(value) => setFormData({ ...formData, rol: value as RbacRole })}>
+              <Select value={formData.rol} onValueChange={(value) => setFormData({ ...formData, rol: value as UserRole })}>
                 <SelectTrigger className="bg-slate-700 border-slate-600">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-700 border-slate-600">
-                  <SelectItem value="ADMIN">Administrador</SelectItem>
-                  <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
-                  <SelectItem value="GESTOR">Gestor</SelectItem>
-                  <SelectItem value="TECNICO">Empleado</SelectItem>
+                  <SelectItem value="Administrador">Administrador</SelectItem>
+                  <SelectItem value="Supervisor">Supervisor</SelectItem>
+                  <SelectItem value="Gestor">Gestor</SelectItem>
+                  <SelectItem value="Empleado">Empleado</SelectItem>
                 </SelectContent>
               </Select>
             </div>

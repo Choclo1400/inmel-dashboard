@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Search, CheckCircle, XCircle, Clock, MessageSquare, Eye } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Search, CheckCircle, XCircle, Clock, MessageSquare, Eye, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,74 +12,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-
-// Mock data for pending approvals
-const mockPendingApprovals = [
-  {
-    id: "SOL-2025-005",
-    address: "Av. Las Condes 1234, Las Condes",
-    description: "Instalación de nuevo transformador de distribución",
-    type: "Instalación",
-    requestedBy: "Juan Pérez",
-    requestDate: "2025-01-14",
-    priority: "Alta",
-    estimatedCost: "$2,500,000",
-    estimatedHours: 12,
-    status: "Pendiente Aprobación",
-    urgency: "Normal",
-  },
-  {
-    id: "SOL-2025-006",
-    address: "Calle Providencia 567, Providencia",
-    description: "Reparación urgente de línea de media tensión",
-    type: "Reparación",
-    requestedBy: "María González",
-    requestDate: "2025-01-15",
-    priority: "Crítica",
-    estimatedCost: "$1,800,000",
-    estimatedHours: 8,
-    status: "Pendiente Aprobación",
-    urgency: "Urgente",
-  },
-  {
-    id: "SOL-2025-007",
-    address: "Av. Vitacura 890, Vitacura",
-    description: "Mantenimiento preventivo de subestación",
-    type: "Mantenimiento Preventivo",
-    requestedBy: "Carlos Silva",
-    requestDate: "2025-01-13",
-    priority: "Media",
-    estimatedCost: "$950,000",
-    estimatedHours: 6,
-    status: "Pendiente Aprobación",
-    urgency: "Normal",
-  },
-]
-
-const mockApprovalHistory = [
-  {
-    id: "SOL-2025-003",
-    address: "Av. Apoquindo 890, Las Condes",
-    description: "Instalación de nuevo medidor inteligente",
-    type: "Instalación",
-    requestedBy: "Luis Rodríguez",
-    approvedBy: "Ana García",
-    approvalDate: "2025-01-12",
-    status: "Aprobada",
-    comments: "Aprobado. Proceder con la instalación según cronograma.",
-  },
-  {
-    id: "SOL-2025-004",
-    address: "Calle Vitacura 321, Vitacura",
-    description: "Inspección de líneas de alta tensión no autorizada",
-    type: "Inspección",
-    requestedBy: "María López",
-    approvedBy: "Ana García",
-    approvalDate: "2025-01-11",
-    status: "Rechazada",
-    comments: "Rechazado. Falta documentación de seguridad requerida.",
-  },
-]
+import { solicitudesService, type Solicitud } from "@/lib/services/solicitudesService"
+import { notificationsService } from "@/lib/services/notificationsService"
+import { createClient } from "@/lib/supabase/client"
+import { useToast } from "@/components/ui/use-toast"
+import DashboardLayout from "@/components/layout/dashboard-layout"
+import Link from "next/link"
 
 const getPriorityBadge = (priority: string) => {
   switch (priority) {
@@ -113,57 +51,223 @@ export default function AprobacionesPage() {
   const [activeTab, setActiveTab] = useState("pending")
   const [searchTerm, setSearchTerm] = useState("")
   const [priorityFilter, setPriorityFilter] = useState("all")
-  const [selectedRequest, setSelectedRequest] = useState<any>(null)
-  const [approvalAction, setApprovalAction] = useState<"approve" | "reject" | null>(null)
+  const [selectedRequest, setSelectedRequest] = useState<Solicitud | null>(null)
   const [approvalComments, setApprovalComments] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [processing, setProcessing] = useState(false)
+  const [showDialog, setShowDialog] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string>("")
+  const { toast } = useToast()
 
-  const handleApproval = (action: "approve" | "reject") => {
-    if (!selectedRequest || !approvalComments.trim()) return
+  // Data states
+  const [pendingSolicitudes, setPendingSolicitudes] = useState<Solicitud[]>([])
+  const [historialSolicitudes, setHistorialSolicitudes] = useState<Solicitud[]>([])
+  const [stats, setStats] = useState({
+    pending: 0,
+    approvedToday: 0,
+    rejectedToday: 0,
+    avgTime: "0h",
+  })
 
-    // TODO: Implement approval logic
-    console.log("[v0] Processing approval:", {
-      requestId: selectedRequest.id,
-      action,
-      comments: approvalComments,
-    })
+  // Load current user
+  useEffect(() => {
+    const fetchUser = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setCurrentUserId(user.id)
+      }
+    }
+    fetchUser()
+  }, [])
 
-    // Reset state
-    setSelectedRequest(null)
-    setApprovalAction(null)
-    setApprovalComments("")
+  // Load solicitudes
+  const loadSolicitudes = async () => {
+    try {
+      setLoading(true)
+      const [pending, history] = await Promise.all([
+        solicitudesService.getByStatus("Pendiente"),
+        solicitudesService.getAll(),
+      ])
+
+      setPendingSolicitudes(pending)
+
+      // Filter history for only approved or rejected
+      const filteredHistory = history.filter(
+        (s) => s.estado === "Aprobada" || s.estado === "Rechazada"
+      )
+      setHistorialSolicitudes(filteredHistory)
+
+      // Calculate stats
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+
+      const approvedToday = history.filter((s) => {
+        if (s.estado !== "Aprobada" || !s.fecha_aprobacion) return false
+        const approvalDate = new Date(s.fecha_aprobacion)
+        approvalDate.setHours(0, 0, 0, 0)
+        return approvalDate.getTime() === today.getTime()
+      }).length
+
+      const rejectedToday = history.filter((s) => {
+        if (s.estado !== "Rechazada" || !s.fecha_aprobacion) return false
+        const approvalDate = new Date(s.fecha_aprobacion)
+        approvalDate.setHours(0, 0, 0, 0)
+        return approvalDate.getTime() === today.getTime()
+      }).length
+
+      setStats({
+        pending: pending.length,
+        approvedToday,
+        rejectedToday,
+        avgTime: "2.5h", // Would need more complex calculation
+      })
+    } catch (error) {
+      console.error("Error loading solicitudes:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las solicitudes",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const filteredPendingRequests = mockPendingApprovals.filter((request) => {
-    const matchesSearch =
-      request.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.requestedBy.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    if (currentUserId) {
+      loadSolicitudes()
+    }
+  }, [currentUserId])
 
-    const matchesPriority = priorityFilter === "all" || request.priority === priorityFilter
+  // Realtime subscription for solicitudes updates
+  useEffect(() => {
+    const supabase = createClient()
+    
+    const channel = supabase
+      .channel('solicitudes-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events: INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'solicitudes'
+        },
+        (payload: any) => {
+          console.log('📡 Solicitud cambió en tiempo real:', payload)
+          // Reload data when any change occurs
+          loadSolicitudes()
+        }
+      )
+      .subscribe()
+
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [currentUserId])
+
+  const handleApproval = async (action: "approve" | "reject") => {
+    if (!selectedRequest || !approvalComments.trim() || !currentUserId) return
+
+    try {
+      setProcessing(true)
+
+      if (action === "approve") {
+        await solicitudesService.approve(selectedRequest.id, currentUserId, approvalComments)
+
+        // Show success toast with suggestion to schedule
+        const message = selectedRequest.tecnico_asignado_id
+          ? `La solicitud ${selectedRequest.numero_solicitud} ha sido aprobada. Ahora puedes programarla desde la página de Solicitudes.`
+          : `La solicitud ${selectedRequest.numero_solicitud} ha sido aprobada. Recuerda asignar un técnico para poder programarla.`
+
+        toast({
+          title: "✅ Solicitud aprobada",
+          description: message,
+          duration: 8000, // Mostrar por más tiempo
+        })
+
+        // Send notification to requester
+        if (selectedRequest.creado_por) {
+          await notificationsService.create({
+            user_id: selectedRequest.creado_por,
+            title: "Solicitud Aprobada",
+            message: `Tu solicitud ${selectedRequest.numero_solicitud} ha sido aprobada`,
+            type: "success",
+            solicitud_id: selectedRequest.id,
+          })
+        }
+      } else {
+        await solicitudesService.reject(selectedRequest.id, currentUserId, approvalComments)
+        toast({
+          title: "Solicitud rechazada",
+          description: `La solicitud ${selectedRequest.numero_solicitud} ha sido rechazada`,
+        })
+
+        // Send notification to requester
+        if (selectedRequest.creado_por) {
+          await notificationsService.create({
+            user_id: selectedRequest.creado_por,
+            title: "Solicitud Rechazada",
+            message: `Tu solicitud ${selectedRequest.numero_solicitud} ha sido rechazada`,
+            type: "error",
+            solicitud_id: selectedRequest.id,
+          })
+        }
+      }
+
+      // Reset state - realtime subscription will handle the reload
+      setShowDialog(false)
+      setSelectedRequest(null)
+      setApprovalComments("")
+      // No need to call loadSolicitudes() - realtime will trigger it
+    } catch (error) {
+      console.error("Error processing approval:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo procesar la aprobación",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const filteredPendingRequests = pendingSolicitudes.filter((request) => {
+    const matchesSearch =
+      request.numero_solicitud.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      request.direccion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      request.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (request.creador && `${request.creador.nombre} ${request.creador.apellido}`.toLowerCase().includes(searchTerm.toLowerCase()))
+
+    const matchesPriority = priorityFilter === "all" || request.prioridad === priorityFilter
 
     return matchesSearch && matchesPriority
   })
 
-  return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700 px-8 py-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Centro de Aprobaciones</h1>
-            <p className="text-slate-400 text-sm">Gestión de aprobaciones y rechazos de solicitudes técnicas</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge className="bg-orange-600 text-white hover:bg-orange-600">
-              {mockPendingApprovals.length} Pendientes
-            </Badge>
-          </div>
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-900">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-slate-400">Cargando solicitudes...</p>
         </div>
       </div>
+    )
+  }
 
-      {/* Content */}
-      <div className="p-8">
+  return (
+    <DashboardLayout 
+      title="Centro de Aprobaciones" 
+      subtitle="Gestión de aprobaciones y rechazos de solicitudes técnicas"
+    >
+      <div className="space-y-6">
+        {/* Stats Badge */}
+        <div className="flex justify-end">
+          <Badge className="bg-orange-600 text-white hover:bg-orange-600">
+            {stats.pending} Pendientes
+          </Badge>
+        </div>
         {/* Stats Cards */}
         <div className="grid grid-cols-4 gap-6 mb-8">
           <Card className="bg-slate-800 border-slate-700">
@@ -171,7 +275,7 @@ export default function AprobacionesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-slate-400 text-sm">Pendientes</p>
-                  <p className="text-2xl font-bold text-orange-400">{mockPendingApprovals.length}</p>
+                  <p className="text-2xl font-bold text-orange-400">{stats.pending}</p>
                 </div>
                 <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
                   <Clock className="w-5 h-5 text-white" />
@@ -185,7 +289,7 @@ export default function AprobacionesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-slate-400 text-sm">Aprobadas Hoy</p>
-                  <p className="text-2xl font-bold text-green-400">5</p>
+                  <p className="text-2xl font-bold text-green-400">{stats.approvedToday}</p>
                 </div>
                 <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
                   <CheckCircle className="w-5 h-5 text-white" />
@@ -199,7 +303,7 @@ export default function AprobacionesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-slate-400 text-sm">Rechazadas Hoy</p>
-                  <p className="text-2xl font-bold text-red-400">2</p>
+                  <p className="text-2xl font-bold text-red-400">{stats.rejectedToday}</p>
                 </div>
                 <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
                   <XCircle className="w-5 h-5 text-white" />
@@ -213,7 +317,7 @@ export default function AprobacionesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-slate-400 text-sm">Tiempo Promedio</p>
-                  <p className="text-2xl font-bold text-slate-300">2.5h</p>
+                  <p className="text-2xl font-bold text-slate-300">{stats.avgTime}</p>
                 </div>
                 <div className="w-10 h-10 bg-slate-600 rounded-lg flex items-center justify-center">
                   <Clock className="w-5 h-5 text-white" />
@@ -287,96 +391,42 @@ export default function AprobacionesPage() {
                     <TableHead className="text-slate-300">Solicitante</TableHead>
                     <TableHead className="text-slate-300">Fecha</TableHead>
                     <TableHead className="text-slate-300">Prioridad</TableHead>
-                    <TableHead className="text-slate-300">Costo Est.</TableHead>
+                    <TableHead className="text-slate-300">Horas Est.</TableHead>
                     <TableHead className="text-slate-300">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPendingRequests.map((request) => (
                     <TableRow key={request.id} className="border-slate-700 hover:bg-slate-700/50">
-                      <TableCell className="text-white font-medium">{request.id}</TableCell>
-                      <TableCell className="text-slate-300">{request.type}</TableCell>
-                      <TableCell className="text-slate-300">{request.requestedBy}</TableCell>
-                      <TableCell className="text-slate-300">{request.requestDate}</TableCell>
-                      <TableCell>{getPriorityBadge(request.priority)}</TableCell>
-                      <TableCell className="text-slate-300">{request.estimatedCost}</TableCell>
+                      <TableCell className="text-white font-medium">
+                        <Link href={`/solicitudes/${request.id}`} className="hover:text-blue-400">
+                          {request.numero_solicitud}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-slate-300">{request.tipo_trabajo}</TableCell>
+                      <TableCell className="text-slate-300">
+                        {request.creador ? `${request.creador.nombre} ${request.creador.apellido}` : "N/A"}
+                      </TableCell>
+                      <TableCell className="text-slate-300">
+                        {new Date(request.created_at).toLocaleDateString("es-CL")}
+                      </TableCell>
+                      <TableCell>{getPriorityBadge(request.prioridad)}</TableCell>
+                      <TableCell className="text-slate-300">
+                        {request.horas_estimadas ? `${request.horas_estimadas}h` : "N/A"}
+                      </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-slate-400 hover:text-white"
-                                onClick={() => setSelectedRequest(request)}
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="bg-slate-800 border-slate-700 max-w-2xl">
-                              <DialogHeader>
-                                <DialogTitle className="text-white">Revisar Solicitud - {request.id}</DialogTitle>
-                              </DialogHeader>
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <Label className="text-slate-300">Tipo</Label>
-                                    <p className="text-white">{request.type}</p>
-                                  </div>
-                                  <div>
-                                    <Label className="text-slate-300">Prioridad</Label>
-                                    <div className="mt-1">{getPriorityBadge(request.priority)}</div>
-                                  </div>
-                                </div>
-                                <div>
-                                  <Label className="text-slate-300">Dirección</Label>
-                                  <p className="text-white">{request.address}</p>
-                                </div>
-                                <div>
-                                  <Label className="text-slate-300">Descripción</Label>
-                                  <p className="text-white">{request.description}</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <Label className="text-slate-300">Costo Estimado</Label>
-                                    <p className="text-white">{request.estimatedCost}</p>
-                                  </div>
-                                  <div>
-                                    <Label className="text-slate-300">Horas Estimadas</Label>
-                                    <p className="text-white">{request.estimatedHours} horas</p>
-                                  </div>
-                                </div>
-                                <div>
-                                  <Label className="text-slate-300">Comentarios de Aprobación</Label>
-                                  <Textarea
-                                    placeholder="Ingresa comentarios sobre la aprobación o rechazo..."
-                                    value={approvalComments}
-                                    onChange={(e) => setApprovalComments(e.target.value)}
-                                    className="bg-slate-700 border-slate-600 text-white placeholder-slate-400"
-                                  />
-                                </div>
-                                <div className="flex gap-2 justify-end">
-                                  <Button
-                                    variant="destructive"
-                                    onClick={() => handleApproval("reject")}
-                                    disabled={!approvalComments.trim()}
-                                    className="bg-red-600 hover:bg-red-700"
-                                  >
-                                    <XCircle className="w-4 h-4 mr-2" />
-                                    Rechazar
-                                  </Button>
-                                  <Button
-                                    onClick={() => handleApproval("approve")}
-                                    disabled={!approvalComments.trim()}
-                                    className="bg-green-600 hover:bg-green-700"
-                                  >
-                                    <CheckCircle className="w-4 h-4 mr-2" />
-                                    Aprobar
-                                  </Button>
-                                </div>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-slate-400 hover:text-white"
+                            onClick={() => {
+                              setSelectedRequest(request)
+                              setShowDialog(true)
+                            }}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -386,6 +436,90 @@ export default function AprobacionesPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Approval Dialog */}
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogContent className="bg-slate-800 border-slate-700 max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-white">
+                Revisar Solicitud - {selectedRequest?.numero_solicitud}
+              </DialogTitle>
+            </DialogHeader>
+            {selectedRequest && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-slate-300">Tipo</Label>
+                    <p className="text-white">{selectedRequest.tipo_trabajo}</p>
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">Prioridad</Label>
+                    <div className="mt-1">{getPriorityBadge(selectedRequest.prioridad)}</div>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-slate-300">Dirección</Label>
+                  <p className="text-white">{selectedRequest.direccion}</p>
+                </div>
+                <div>
+                  <Label className="text-slate-300">Descripción</Label>
+                  <p className="text-white">{selectedRequest.descripcion}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-slate-300">Solicitado por</Label>
+                    <p className="text-white">
+                      {selectedRequest.creador
+                        ? `${selectedRequest.creador.nombre} ${selectedRequest.creador.apellido}`
+                        : "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">Horas Estimadas</Label>
+                    <p className="text-white">{selectedRequest.horas_estimadas || "N/A"} horas</p>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-slate-300">Comentarios de Aprobación *</Label>
+                  <Textarea
+                    placeholder="Ingresa comentarios sobre la aprobación o rechazo..."
+                    value={approvalComments}
+                    onChange={(e) => setApprovalComments(e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white placeholder-slate-400 mt-2"
+                    rows={4}
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="destructive"
+                    onClick={() => handleApproval("reject")}
+                    disabled={!approvalComments.trim() || processing}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    {processing ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <XCircle className="w-4 h-4 mr-2" />
+                    )}
+                    Rechazar
+                  </Button>
+                  <Button
+                    onClick={() => handleApproval("approve")}
+                    disabled={!approvalComments.trim() || processing}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {processing ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                    )}
+                    Aprobar
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {activeTab === "history" && (
           <Card className="bg-slate-800 border-slate-700">
@@ -406,17 +540,39 @@ export default function AprobacionesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockApprovalHistory.map((request) => (
-                    <TableRow key={request.id} className="border-slate-700 hover:bg-slate-700/50">
-                      <TableCell className="text-white font-medium">{request.id}</TableCell>
-                      <TableCell className="text-slate-300">{request.type}</TableCell>
-                      <TableCell className="text-slate-300">{request.requestedBy}</TableCell>
-                      <TableCell className="text-slate-300">{request.approvedBy}</TableCell>
-                      <TableCell className="text-slate-300">{request.approvalDate}</TableCell>
-                      <TableCell>{getStatusBadge(request.status)}</TableCell>
-                      <TableCell className="text-slate-300 max-w-xs truncate">{request.comments}</TableCell>
+                  {historialSolicitudes.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-slate-400 py-8">
+                        No hay historial de aprobaciones
+                      </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    historialSolicitudes.map((request) => (
+                      <TableRow key={request.id} className="border-slate-700 hover:bg-slate-700/50">
+                        <TableCell className="text-white font-medium">
+                          <Link href={`/solicitudes/${request.id}`} className="hover:text-blue-400">
+                            {request.numero_solicitud}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-slate-300">{request.tipo_trabajo}</TableCell>
+                        <TableCell className="text-slate-300">
+                          {request.creador ? `${request.creador.nombre} ${request.creador.apellido}` : "N/A"}
+                        </TableCell>
+                        <TableCell className="text-slate-300">
+                          {request.aprobado_por ? "Aprobado" : "N/A"}
+                        </TableCell>
+                        <TableCell className="text-slate-300">
+                          {request.fecha_aprobacion
+                            ? new Date(request.fecha_aprobacion).toLocaleDateString("es-CL")
+                            : "N/A"}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(request.estado)}</TableCell>
+                        <TableCell className="text-slate-300 max-w-xs truncate">
+                          {request.comentarios_aprobacion || "Sin comentarios"}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -432,6 +588,6 @@ export default function AprobacionesPage() {
           </AlertDescription>
         </Alert>
       </div>
-    </div>
+    </DashboardLayout>
   )
 }

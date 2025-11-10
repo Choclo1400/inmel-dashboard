@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.solicitudes (
   descripcion TEXT NOT NULL,
   tipo_trabajo TEXT NOT NULL,
   prioridad TEXT NOT NULL CHECK (prioridad IN ('Baja', 'Media', 'Alta', 'Crítica')),
-  estado TEXT NOT NULL DEFAULT 'Pendiente' CHECK (estado IN ('Pendiente', 'En Progreso', 'Completada', 'Rechazada', 'Aprobada')),
+  estado TEXT NOT NULL DEFAULT 'Pendiente' CHECK (estado IN ('Pendiente', 'En Progreso', 'Completada', 'Rechazada', 'Aprobada', 'Requiere Información')),
   fecha_creacion TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   fecha_estimada TIMESTAMP WITH TIME ZONE,
   horas_estimadas INTEGER,

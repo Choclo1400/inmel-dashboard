@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Plus, MoreHorizontal, Edit, Trash2, Phone, Mail, MapPin, Building, Calendar } from "lucide-react"
+import { Search, Plus, MoreHorizontal, Edit, Trash2, Phone, Mail, MapPin, Building, Calendar, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,24 +10,29 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import DashboardLayout from "@/components/layout/dashboard-layout"
-import { createClient } from "@/lib/supabase/client"
+import { clientesService, type Client } from "@/lib/services/clientesService"
 import ClientFormDialog from "@/components/clients/client-form-dialog"
 import ClientDeleteDialog from "@/components/clients/client-delete-dialog"
-import ServiceRequestDialog from "@/components/scheduling/service-request-dialog"
+import CreateRequestDialog from "@/components/clients/create-request-dialog"
 import { ClientsPermission } from "@/components/rbac/PermissionGuard"
-import { usePermissions } from "@/hooks/use-permissions"
-import type { Client } from "@/lib/types"
+import { useToast } from "@/components/ui/use-toast"
 
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "Activo":
-      return <Badge className="bg-green-600 text-white hover:bg-green-600">Activo</Badge>
-    case "Inactivo":
-      return <Badge className="bg-red-600 text-white hover:bg-red-600">Inactivo</Badge>
-    case "Suspendido":
-      return <Badge className="bg-orange-600 text-white hover:bg-orange-600">Suspendido</Badge>
+const getStatusBadge = (isActive: boolean) => {
+  return isActive ? (
+    <Badge className="bg-green-600 text-white hover:bg-green-600">Activo</Badge>
+  ) : (
+    <Badge className="bg-red-600 text-white hover:bg-red-600">Inactivo</Badge>
+  )
+}
+
+const getTypeBadge = (type: string) => {
+  switch (type) {
+    case "company":
+      return <Badge className="bg-blue-600 text-white hover:bg-blue-600">Empresa</Badge>
+    case "individual":
+      return <Badge className="bg-purple-600 text-white hover:bg-purple-600">Individual</Badge>
     default:
-      return <Badge variant="secondary">{status}</Badge>
+      return <Badge variant="secondary">{type}</Badge>
   }
 }
 
@@ -36,6 +41,7 @@ function ClientesPageClient() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
   const [clients, setClients] = useState<Client[]>([])
+  const [stats, setStats] = useState({ total: 0, activos: 0, empresas: 0, individuales: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
@@ -43,16 +49,24 @@ function ClientesPageClient() {
   const [showRequestDialog, setShowRequestDialog] = useState(false)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [selectedClientForRequest, setSelectedClientForRequest] = useState<Client | null>(null)
+  const { toast } = useToast()
 
   const loadClients = async () => {
     try {
-      const supabase = createClient()
-      const { data, error } = await supabase.from("clients").select("*").order("created_at", { ascending: false })
-
-      if (error) throw error
-      setClients(data || [])
+      setIsLoading(true)
+      const [clientsData, statsData] = await Promise.all([
+        clientesService.getAll(),
+        clientesService.getStats(),
+      ])
+      setClients(clientsData)
+      setStats(statsData)
     } catch (error) {
       console.error("Error loading clients:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los clientes",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -64,12 +78,14 @@ function ClientesPageClient() {
 
   const filteredClients = clients.filter((client) => {
     const matchesSearch =
-      (client.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.rut || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.contact_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.email || '').toLowerCase().includes(searchTerm.toLowerCase())
+      (client.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (client.contact_person || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (client.email || "").toLowerCase().includes(searchTerm.toLowerCase())
 
-    const matchesStatus = statusFilter === "all" || client.status === statusFilter
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "active" ? client.is_active : !client.is_active)
+
     const matchesType = typeFilter === "all" || client.type === typeFilter
 
     return matchesSearch && matchesStatus && matchesType
@@ -107,13 +123,13 @@ function ClientesPageClient() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         <Card className="bg-slate-800 border-slate-700">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-400 text-sm">Total Clientes</p>
-                <p className="text-2xl font-bold text-white">{clients.length}</p>
+                <p className="text-2xl font-bold text-white">{stats.total}</p>
               </div>
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                 <Building className="w-5 h-5 text-white" />
@@ -127,9 +143,7 @@ function ClientesPageClient() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-400 text-sm">Clientes Activos</p>
-                <p className="text-2xl font-bold text-green-400">
-                  {clients.filter((c) => c.status === "Activo").length}
-                </p>
+                <p className="text-2xl font-bold text-green-400">{stats.activos}</p>
               </div>
               <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
                 <Building className="w-5 h-5 text-white" />
@@ -142,13 +156,11 @@ function ClientesPageClient() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm">Solicitudes Activas</p>
-                <p className="text-2xl font-bold text-blue-400">
-                  {clients.reduce((sum, c) => sum + (c.activeRequests || 0), 0)}
-                </p>
+                <p className="text-slate-400 text-sm">Empresas</p>
+                <p className="text-2xl font-bold text-blue-400">{stats.empresas}</p>
               </div>
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Phone className="w-5 h-5 text-white" />
+                <Building className="w-5 h-5 text-white" />
               </div>
             </div>
           </CardContent>
@@ -158,13 +170,11 @@ function ClientesPageClient() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm">Total Solicitudes</p>
-                <p className="text-2xl font-bold text-orange-400">
-                  {clients.reduce((sum, c) => sum + (c.totalRequests || 0), 0)}
-                </p>
+                <p className="text-slate-400 text-sm">Individuales</p>
+                <p className="text-2xl font-bold text-purple-400">{stats.individuales}</p>
               </div>
-              <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
-                <Mail className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
+                <User className="w-5 h-5 text-white" />
               </div>
             </div>
           </CardContent>
@@ -177,7 +187,7 @@ function ClientesPageClient() {
           <CardTitle className="text-white">Filtros y Búsqueda</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -190,24 +200,23 @@ function ClientesPageClient() {
               </div>
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white">
+              <SelectTrigger className="w-full sm:w-48 bg-slate-700 border-slate-600 text-white">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent className="bg-slate-700 border-slate-600">
                 <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="Activo">Activo</SelectItem>
-                <SelectItem value="Inactivo">Inactivo</SelectItem>
-                <SelectItem value="Suspendido">Suspendido</SelectItem>
+                <SelectItem value="active">Activos</SelectItem>
+                <SelectItem value="inactive">Inactivos</SelectItem>
               </SelectContent>
             </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white">
+              <SelectTrigger className="w-full sm:w-48 bg-slate-700 border-slate-600 text-white">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent className="bg-slate-700 border-slate-600">
                 <SelectItem value="all">Todos los tipos</SelectItem>
-                <SelectItem value="Empresa">Empresa</SelectItem>
-                <SelectItem value="Particular">Particular</SelectItem>
+                <SelectItem value="company">Empresas</SelectItem>
+                <SelectItem value="individual">Individuales</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -223,11 +232,12 @@ function ClientesPageClient() {
           {isLoading ? (
             <div className="text-center py-8 text-slate-400">Cargando clientes...</div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-700">
                   <TableHead className="text-slate-300">Cliente</TableHead>
-                  <TableHead className="text-slate-300">RUT</TableHead>
+                  <TableHead className="text-slate-300">Tipo</TableHead>
                   <TableHead className="text-slate-300">Contacto</TableHead>
                   <TableHead className="text-slate-300">Email</TableHead>
                   <TableHead className="text-slate-300">Teléfono</TableHead>
@@ -236,35 +246,42 @@ function ClientesPageClient() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClients.map((client) => (
-                  <TableRow key={client.id} className="border-slate-700 hover:bg-slate-700/50">
-                    <TableCell>
-                      <div>
-                        <div className="text-white font-medium">{client.name}</div>
-                        {client.address && (
-                          <div className="text-slate-400 text-sm flex items-center">
-                            <MapPin className="w-3 h-3 mr-1" />
-                            {client.address}
-                          </div>
-                        )}
-                      </div>
+                {filteredClients.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-slate-400 py-8">
+                      No se encontraron clientes
                     </TableCell>
-                    <TableCell className="text-slate-300">{client.rut}</TableCell>
-                    <TableCell className="text-slate-300">{client.contact_name}</TableCell>
-                    <TableCell className="text-slate-300">{client.email}</TableCell>
-                    <TableCell className="text-slate-300">{client.phone}</TableCell>
-                    <TableCell>{getStatusBadge(client.status)}</TableCell>
+                  </TableRow>
+                ) : (
+                  filteredClients.map((client) => (
+                    <TableRow key={client.id} className="border-slate-700 hover:bg-slate-700/50">
+                      <TableCell>
+                        <div>
+                          <div className="text-white font-medium">{client.name}</div>
+                          {client.address && (
+                            <div className="text-slate-400 text-sm flex items-center mt-1">
+                              <MapPin className="w-3 h-3 mr-1" />
+                              {client.address}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>{getTypeBadge(client.type)}</TableCell>
+                      <TableCell className="text-slate-300">{client.contact_person || "N/A"}</TableCell>
+                      <TableCell className="text-slate-300">{client.email || "N/A"}</TableCell>
+                      <TableCell className="text-slate-300">{client.phone || "N/A"}</TableCell>
+                      <TableCell>{getStatusBadge(client.is_active)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {/* NUEVO: Botón directo para nueva solicitud */}
                         <ClientsPermission action="read">
                           <Button
                             size="sm"
-                            className="bg-green-600 hover:bg-green-700 text-white"
+                            className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm whitespace-nowrap"
                             onClick={() => handleCreateRequest(client)}
                           >
-                            <Calendar className="w-4 h-4 mr-1" />
-                            Solicitud
+                            <Calendar className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                            <span className="hidden sm:inline">Solicitud</span>
                           </Button>
                         </ClientsPermission>
 
@@ -298,9 +315,11 @@ function ClientesPageClient() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                ))
+                )}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -322,8 +341,8 @@ function ClientesPageClient() {
         onSuccess={handleSuccess}
       />
 
-      {/* NUEVO: Dialog de solicitud con scheduling */}
-      <ServiceRequestDialog
+      {/* Dialog de solicitud simplificado */}
+      <CreateRequestDialog
         open={showRequestDialog}
         onOpenChange={setShowRequestDialog}
         client={selectedClientForRequest}
