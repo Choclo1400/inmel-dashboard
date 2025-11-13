@@ -121,9 +121,11 @@ export function CalendarioTecnico({
 
     setValidating(true)
     try {
-      const available = await checkAvailability(techId, start, end)
+      // Si estamos editando, excluir el evento actual de la validación
+      const excludeId = editingEvent?.id
+      const available = await checkAvailability(techId, start, end, excludeId)
       setIsAvailable(available)
-      
+
       if (!available) {
         toast({
           title: "⚠️ Conflicto de horario",
