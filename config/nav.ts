@@ -13,7 +13,6 @@ export const NAV_ITEMS: Array<{
   { id: 'solicitudes',     label: 'Solicitudes',     href: '/solicitudes',     roles: ['admin', 'supervisor', 'manager', 'operator'] },
   { id: 'aprobaciones',    label: 'Aprobaciones',    href: '/aprobaciones',    roles: ['admin', 'manager'] },
   { id: 'programaciones',  label: 'Programaciones',  href: '/programaciones',  roles: ['admin', 'manager'] },
-  { id: 'programaciones-prueba', label: 'Programaciones Prueba', href: '/programaciones-prueba', roles: ['admin', 'manager'] },
   { id: 'reportes',        label: 'Reportes',        href: '/reportes',        roles: ['admin', 'manager'] },
   
   // TÉCNICO: Solicitudes asignadas, actualizaciones
