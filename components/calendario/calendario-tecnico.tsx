@@ -99,6 +99,7 @@ export function CalendarioTecnico({
   const [dialogOpen, setDialogOpen] = useState(false)
   const [validating, setValidating] = useState(false)
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null)
+  const [horasInvalidas, setHorasInvalidas] = useState(false)
   const [editingEvent, setEditingEvent] = useState<Programacion | null>(null)
   const { toast } = useToast()
 
@@ -113,7 +114,7 @@ export function CalendarioTecnico({
   })
 
   // Validación automática de disponibilidad
-  const validateAvailability = async (techId: string, start: string, end: string) => {
+  const validateAvailability = async (techId: string, start: string, end: string, excludeBookingId?: string) => {
     if (!techId || !start || !end) {
       setIsAvailable(null)
       return
@@ -121,9 +122,8 @@ export function CalendarioTecnico({
 
     setValidating(true)
     try {
-      // Si estamos editando, excluir el evento actual de la validación
-      const excludeId = editingEvent?.id
-      const available = await checkAvailability(techId, start, end, excludeId)
+      // Usar el excludeBookingId pasado como parámetro (más confiable que el estado)
+      const available = await checkAvailability(techId, start, end, excludeBookingId)
       setIsAvailable(available)
 
       if (!available) {
@@ -153,13 +153,35 @@ export function CalendarioTecnico({
 
     // Validar automáticamente si tenemos todos los datos necesarios
     if (newFormData.technician_id && newFormData.start_time && newFormData.end_time) {
+      // VALIDACIÓN: Verificar que hora inicio < hora fin
+      const startDate = new Date(newFormData.start_time)
+      const endDate = new Date(newFormData.end_time)
+
+      if (startDate >= endDate) {
+        setHorasInvalidas(true)
+        setIsAvailable(false)
+        toast({
+          title: "❌ Horas incorrectas",
+          description: "La hora de inicio debe ser anterior a la hora de fin",
+          variant: "destructive"
+        })
+        return
+      }
+
+      // Horas válidas, resetear estado
+      setHorasInvalidas(false)
+
+      // Si estamos editando, pasar el ID para excluirlo de la validación
+      const excludeId = editingEvent?.id
       validateAvailability(
         newFormData.technician_id,
         newFormData.start_time,
-        newFormData.end_time
+        newFormData.end_time,
+        excludeId
       )
     } else {
       setIsAvailable(null)
+      setHorasInvalidas(false)
     }
   }
 
@@ -175,6 +197,7 @@ export function CalendarioTecnico({
     // Resetear validación y modo edición
     setIsAvailable(null)
     setValidating(false)
+    setHorasInvalidas(false)
     setEditingEvent(null)
 
     // Establecer datos del formulario
@@ -204,22 +227,34 @@ export function CalendarioTecnico({
     // Establecer modo edición
     setEditingEvent(event)
 
+    const startTime = event.start.toISOString()
+    const endTime = event.end.toISOString()
+    const technicianId = event.resource
+
     // Pre-llenar formulario con datos del evento
     setFormData({
-      technician_id: event.resource,
+      technician_id: technicianId,
       title: event.title || '',
       notes: '', // Si notes está en el evento, agregarlo aquí
-      start_time: event.start.toISOString(),
-      end_time: event.end.toISOString(),
+      start_time: startTime,
+      end_time: endTime,
       status: event.status || 'pending'
     })
 
     // Resetear validación
     setIsAvailable(null)
     setValidating(false)
+    setHorasInvalidas(false)
 
     // Abrir dialog
     setDialogOpen(true)
+
+    // Validar disponibilidad excluyendo el evento actual
+    if (technicianId) {
+      setTimeout(() => {
+        validateAvailability(technicianId, startTime, endTime, event.id)
+      }, 200)
+    }
   }
 
   const handleNewProgramacion = () => {
@@ -249,6 +284,7 @@ export function CalendarioTecnico({
 
     setIsAvailable(null)
     setValidating(false)
+    setHorasInvalidas(false)
     setDialogOpen(true)
 
     if (technicianId) {
@@ -374,6 +410,7 @@ export function CalendarioTecnico({
         status: 'pending'
       })
       setIsAvailable(null)
+      setHorasInvalidas(false)
       setEditingEvent(null)
 
       // Recargar calendario
@@ -414,6 +451,7 @@ export function CalendarioTecnico({
         status: 'pending'
       })
       setIsAvailable(null)
+      setHorasInvalidas(false)
       setEditingEvent(null)
 
       // Recargar calendario
@@ -627,10 +665,17 @@ export function CalendarioTecnico({
               </div>
             )}
 
-            {!validating && isAvailable === false && (
+            {!validating && isAvailable === false && !horasInvalidas && (
               <div className="p-3 bg-red-600/10 rounded-lg flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 text-red-400" />
                 <p className="text-sm text-red-300">⚠️ Conflicto: El técnico ya tiene otra programación</p>
+              </div>
+            )}
+
+            {horasInvalidas && (
+              <div className="p-3 bg-orange-600/10 rounded-lg flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-orange-400" />
+                <p className="text-sm text-orange-300">❌ Horas incorrectas: La hora de inicio debe ser antes de la hora de fin</p>
               </div>
             )}
 
@@ -660,6 +705,7 @@ export function CalendarioTecnico({
                     status: 'pending'
                   })
                   setIsAvailable(null)
+                  setHorasInvalidas(false)
                   setEditingEvent(null)
                 }}
               >
@@ -669,7 +715,7 @@ export function CalendarioTecnico({
               <Button
                 type="submit"
                 className="flex-1"
-                disabled={isAvailable === false}
+                disabled={isAvailable === false || horasInvalidas}
               >
                 {validating ? 'Validando...' : editingEvent ? 'Guardar Cambios' : 'Crear Programación'}
               </Button>
