@@ -44,6 +44,28 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+// ✅ NUEVO: Funciones helper para conversión correcta entre datetime-local y ISO
+// Convierte de ISO (UTC) a formato datetime-local (YYYY-MM-DDTHH:MM en hora local)
+function isoToDatetimeLocal(isoString: string): string {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  // Obtener componentes en hora local
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+// Convierte de formato datetime-local (YYYY-MM-DDTHH:MM en hora local) a ISO (UTC)
+function datetimeLocalToISO(datetimeLocal: string): string {
+  if (!datetimeLocal) return ''
+  // El constructor de Date interpreta correctamente el formato datetime-local como hora local
+  return new Date(datetimeLocal).toISOString()
+}
+
 interface BookingFormData {
   technician_id: string
   client_name: string
@@ -441,8 +463,8 @@ export default function SimpleCalendar() {
                     <Input
                       id="start_time"
                       type="datetime-local"
-                      value={formData.start_time.slice(0, 16)}
-                      onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value + ':00.000Z' }))}
+                      value={isoToDatetimeLocal(formData.start_time)}
+                      onChange={(e) => setFormData(prev => ({ ...prev, start_time: datetimeLocalToISO(e.target.value) }))}
                       required
                     />
                   </div>
@@ -452,8 +474,8 @@ export default function SimpleCalendar() {
                     <Input
                       id="end_time"
                       type="datetime-local"
-                      value={formData.end_time.slice(0, 16)}
-                      onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value + ':00.000Z' }))}
+                      value={isoToDatetimeLocal(formData.end_time)}
+                      onChange={(e) => setFormData(prev => ({ ...prev, end_time: datetimeLocalToISO(e.target.value) }))}
                       required
                     />
                   </div>

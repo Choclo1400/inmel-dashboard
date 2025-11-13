@@ -60,6 +60,26 @@ interface BookingFormData {
   status: 'pending' | 'confirmed' | 'done' | 'cancelled'
 }
 
+// ✅ NUEVO: Funciones helper para conversión correcta entre datetime-local y ISO
+// Convierte de ISO (UTC) a formato datetime-local (YYYY-MM-DDTHH:MM en hora local)
+function isoToDatetimeLocal(isoString: string): string {
+  const date = new Date(isoString)
+  // Obtener componentes en hora local
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+// Convierte de formato datetime-local (YYYY-MM-DDTHH:MM en hora local) a ISO (UTC)
+function datetimeLocalToISO(datetimeLocal: string): string {
+  // El constructor de Date interpreta correctamente el formato datetime-local como hora local
+  return new Date(datetimeLocal).toISOString()
+}
+
 // Función helper para obtener formulario por defecto con fechas actualizadas
 function getDefaultForm(): BookingFormData {
   const tomorrow = new Date()
@@ -534,10 +554,10 @@ export function SchedulingCalendar({
                     <Input
                       id="start_time"
                       type="datetime-local"
-                      value={formData.start_time ? new Date(formData.start_time).toISOString().slice(0, 16) : ''}
+                      value={formData.start_time ? isoToDatetimeLocal(formData.start_time) : ''}
                       onChange={(e) => {
                         if (e.target.value) {
-                          setFormData(prev => ({ ...prev, start_time: new Date(e.target.value).toISOString() }))
+                          setFormData(prev => ({ ...prev, start_time: datetimeLocalToISO(e.target.value) }))
                         }
                       }}
                       required
@@ -549,10 +569,10 @@ export function SchedulingCalendar({
                     <Input
                       id="end_time"
                       type="datetime-local"
-                      value={formData.end_time ? new Date(formData.end_time).toISOString().slice(0, 16) : ''}
+                      value={formData.end_time ? isoToDatetimeLocal(formData.end_time) : ''}
                       onChange={(e) => {
                         if (e.target.value) {
-                          setFormData(prev => ({ ...prev, end_time: new Date(e.target.value).toISOString() }))
+                          setFormData(prev => ({ ...prev, end_time: datetimeLocalToISO(e.target.value) }))
                         }
                       }}
                       required

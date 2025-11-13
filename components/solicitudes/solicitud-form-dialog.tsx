@@ -20,6 +20,21 @@ import { useToast } from "@/components/ui/use-toast"
 import { solicitudesService, type Solicitud, type CreateSolicitudData } from "@/lib/services/solicitudesService"
 import { validateSolicitudDate } from "@/lib/utils/dateValidators"
 
+// ✅ NUEVO: Funciones helper para conversión correcta entre datetime-local y ISO
+// Convierte de ISO (UTC) a formato datetime-local (YYYY-MM-DDTHH:MM en hora local)
+function isoToDatetimeLocal(isoString: string): string {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  // Obtener componentes en hora local
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
 interface SolicitudFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -79,7 +94,7 @@ export default function SolicitudFormDialog({
         prioridad: solicitud.prioridad,
         horas_estimadas: solicitud.horas_estimadas,
         fecha_estimada: solicitud.fecha_estimada
-          ? new Date(solicitud.fecha_estimada).toISOString().slice(0, 16)
+          ? isoToDatetimeLocal(solicitud.fecha_estimada)
           : "",
         creado_por: userId,
       })
@@ -291,7 +306,7 @@ export default function SolicitudFormDialog({
                 value={formData.fecha_estimada}
                 onChange={(e) => setFormData({ ...formData, fecha_estimada: e.target.value })}
                 className="bg-slate-700 border-slate-600 text-white"
-                min={new Date().toISOString().slice(0, 16)}
+                min={isoToDatetimeLocal(new Date().toISOString())}
               />
               <p className="text-xs text-slate-400">
                 📅 Horario laboral: <span className="font-medium text-slate-300">Lunes a Viernes, 8:00 AM - 5:59 PM</span>
