@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(Select-Object ProcessName, MainWindowTitle)"
+      "Bash(Select-Object ProcessName, MainWindowTitle)",
+      "Bash(npm run build:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(ya tiene otra programación\" incluso si el horario estaba libre, porque la \nvalidación contaba el mismo evento que se estaba editando como conflicto.\n\nSolución:\n- Pasar el ID del evento en edición como parámetro excludeBookingId\n- La función checkAvailability() ya soportaba este parámetro (línea 298)\n- Ahora excluye correctamente el evento actual de la validación\n\nCambio en validateAvailability():\n  const excludeId = editingEvent?.id\n  const available = await checkAvailability(techId, start, end, excludeId)\n\nResultado:\n✅ Al editar evento, se puede mantener el mismo horario sin conflicto\n✅ Al editar evento, se detectan conflictos reales con OTROS eventos\n✅ Al crear evento nuevo, funciona igual que antes\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []
