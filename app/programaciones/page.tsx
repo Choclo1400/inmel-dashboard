@@ -1,3 +1,4 @@
+"tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -221,6 +222,7 @@ export default function ProgramacionesPage() {
       {/* Header + Dashboard Button */}
       <div className="flex items-center justify-between">
         <div>
+<<<<<<< HEAD
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold tracking-tight text-white">
               Programaciones
@@ -238,6 +240,10 @@ export default function ProgramacionesPage() {
             </div>
           </div>
           <p className="text-blue-300 mt-1">
+=======
+          <h1 className="text-3xl font-bold tracking-tight text-white">Programaciones</h1>
+          <p className="text-slate-300 mt-1">
+>>>>>>> c32713078ff36051b24f40a15d8212cac82cb59f
             Gestiona y visualiza todas las programaciones de servicios
           </p>
           {lastUpdate && (
@@ -308,10 +314,15 @@ export default function ProgramacionesPage() {
             <AlertCircle className={`h-4 w-4 ${stats.sinProgramar > 0 ? 'text-blue-400' : 'text-blue-300'}`} />
           </CardHeader>
           <CardContent>
+<<<<<<< HEAD
             <div className={`text-2xl font-bold text-blue-400`}>
               {stats.sinProgramar}
             </div>
             <p className="text-xs text-blue-300 mt-1">
+=======
+            <div className={`text-2xl font-bold ${stats.sinProgramar > 0 ? 'text-orange-600' : ''}`}>{stats.sinProgramar}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+>>>>>>> c32713078ff36051b24f40a15d8212cac82cb59f
               Aprobadas sin fecha
             </p>
           </CardContent>
