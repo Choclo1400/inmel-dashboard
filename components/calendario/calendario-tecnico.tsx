@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
-import { createBooking, checkAvailability, type CreateBookingData } from '@/lib/services/scheduling-lite'
+import { createBooking, updateBooking, deleteBooking, checkAvailability, type CreateBookingData } from '@/lib/services/scheduling-lite'
 
 // Configurar moment en español
 moment.locale('es')
@@ -70,6 +70,23 @@ interface BookingFormData {
   status: 'pending' | 'confirmed' | 'done' | 'canceled'
 }
 
+// Funciones helper para manejo de datetime-local sin bug de zona horaria
+const toDatetimeLocal = (isoString: string): string => {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+const fromDatetimeLocal = (datetimeLocal: string): string => {
+  if (!datetimeLocal) return ''
+  return new Date(datetimeLocal).toISOString()
+}
+
 export function CalendarioTecnico({
   programaciones = [],
   technicians = [],
@@ -82,6 +99,7 @@ export function CalendarioTecnico({
   const [dialogOpen, setDialogOpen] = useState(false)
   const [validating, setValidating] = useState(false)
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null)
+  const [editingEvent, setEditingEvent] = useState<Programacion | null>(null)
   const { toast } = useToast()
 
   // Estado del formulario
@@ -145,17 +163,18 @@ export function CalendarioTecnico({
 
   const handleSlotSelect = (slotInfo: { start: Date; end: Date; resource?: string }) => {
     console.log('Slot seleccionado:', slotInfo)
-    
+
     const startTime = slotInfo.start.toISOString()
     const endTime = slotInfo.end.toISOString()
     const technicianId = slotInfo.resource || (technicians.length > 0 ? technicians[0].id : '')
 
     console.log('Preparando formulario con:', { technicianId, startTime, endTime })
-    
-    // Resetear validación
+
+    // Resetear validación y modo edición
     setIsAvailable(null)
     setValidating(false)
-    
+    setEditingEvent(null)
+
     // Establecer datos del formulario
     setFormData({
       technician_id: technicianId,
@@ -165,7 +184,7 @@ export function CalendarioTecnico({
       end_time: endTime,
       status: 'pending'
     })
-    
+
     // Abrir dialog
     setDialogOpen(true)
 
@@ -177,19 +196,46 @@ export function CalendarioTecnico({
     }
   }
 
+  const handleEventClick = (event: Programacion) => {
+    console.log('Evento seleccionado para edición:', event)
+
+    // Establecer modo edición
+    setEditingEvent(event)
+
+    // Pre-llenar formulario con datos del evento
+    setFormData({
+      technician_id: event.resource,
+      title: event.title || '',
+      notes: '', // Si notes está en el evento, agregarlo aquí
+      start_time: event.start.toISOString(),
+      end_time: event.end.toISOString(),
+      status: event.status || 'pending'
+    })
+
+    // Resetear validación
+    setIsAvailable(null)
+    setValidating(false)
+
+    // Abrir dialog
+    setDialogOpen(true)
+  }
+
   const handleNewProgramacion = () => {
     // Crear nueva programación con valores por defecto
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
     tomorrow.setHours(9, 0, 0, 0)
     const startTime = tomorrow.toISOString()
-    
+
     const endTomorrow = new Date(tomorrow)
     endTomorrow.setHours(10, 0, 0, 0)
     const endTime = endTomorrow.toISOString()
-    
+
     const technicianId = technicians.length > 0 ? technicians[0].id : ''
-    
+
+    // Resetear modo edición
+    setEditingEvent(null)
+
     setFormData({
       technician_id: technicianId,
       title: '',
@@ -198,11 +244,11 @@ export function CalendarioTecnico({
       end_time: endTime,
       status: 'pending'
     })
-    
+
     setIsAvailable(null)
     setValidating(false)
     setDialogOpen(true)
-    
+
     if (technicianId) {
       setTimeout(() => {
         validateAvailability(technicianId, startTime, endTime)
@@ -215,8 +261,9 @@ export function CalendarioTecnico({
 
     console.log('Submit form data:', formData)
     console.log('Is available:', isAvailable)
-    console.log('Validating:', validating)
+    console.log('Editing event:', editingEvent)
 
+    // VALIDACIÓN 1: Campos requeridos
     if (!formData.technician_id || !formData.start_time || !formData.end_time) {
       toast({
         title: 'Error de validación',
@@ -226,10 +273,58 @@ export function CalendarioTecnico({
       return
     }
 
-    // Solo bloquear si definitivamente NO está disponible (no bloquear si aún está validando o es null)
+    const startDate = new Date(formData.start_time)
+    const endDate = new Date(formData.end_time)
+
+    // VALIDACIÓN 2: Hora inicio < Hora fin
+    if (startDate >= endDate) {
+      toast({
+        title: 'Error de validación',
+        description: 'La hora de inicio debe ser anterior a la hora de fin',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    // VALIDACIÓN 3: Duración mínima y máxima
+    const durationMs = endDate.getTime() - startDate.getTime()
+    const durationMinutes = durationMs / (1000 * 60)
+
+    if (durationMinutes < 30) {
+      toast({
+        title: 'Error de validación',
+        description: 'La duración mínima es 30 minutos',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    if (durationMinutes > 480) { // 8 horas
+      toast({
+        title: 'Error de validación',
+        description: 'La duración máxima es 8 horas',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    // VALIDACIÓN 4: No programar en el pasado (solo para crear, no editar)
+    if (!editingEvent) {
+      const now = new Date()
+      if (startDate < now) {
+        toast({
+          title: 'Error de validación',
+          description: 'No se pueden crear programaciones en el pasado',
+          variant: 'destructive'
+        })
+        return
+      }
+    }
+
+    // VALIDACIÓN 5: Disponibilidad (solo bloquear si definitivamente NO está disponible)
     if (isAvailable === false) {
       toast({
-        title: 'No se puede crear',
+        title: 'No se puede guardar',
         description: 'El técnico no está disponible en ese horario',
         variant: 'destructive'
       })
@@ -237,23 +332,36 @@ export function CalendarioTecnico({
     }
 
     try {
-      const createData: CreateBookingData = {
+      const bookingData = {
         technician_id: formData.technician_id,
         title: formData.title,
         notes: formData.notes || undefined,
         start_datetime: formData.start_time,
         end_datetime: formData.end_time,
-        status: formData.status === 'done' || formData.status === 'canceled' ? 'pending' : formData.status
+        status: formData.status
       }
 
-      console.log('Creating booking:', createData)
-      await createBooking(createData)
+      if (editingEvent) {
+        // MODO EDICIÓN: Actualizar booking existente
+        console.log('Actualizando booking:', editingEvent.id, bookingData)
+        await updateBooking(editingEvent.id, bookingData)
 
-      toast({
-        title: 'Éxito',
-        description: 'Programación creada correctamente'
-      })
+        toast({
+          title: 'Éxito',
+          description: 'Programación actualizada correctamente'
+        })
+      } else {
+        // MODO CREACIÓN: Crear nuevo booking
+        console.log('Creando booking:', bookingData)
+        await createBooking(bookingData as CreateBookingData)
 
+        toast({
+          title: 'Éxito',
+          description: 'Programación creada correctamente'
+        })
+      }
+
+      // Cerrar dialog y resetear
       setDialogOpen(false)
       setFormData({
         technician_id: '',
@@ -264,13 +372,55 @@ export function CalendarioTecnico({
         status: 'pending'
       })
       setIsAvailable(null)
+      setEditingEvent(null)
 
+      // Recargar calendario
       onBookingCreated?.()
     } catch (error) {
-      console.error('Error creating booking:', error)
+      console.error('Error guardando booking:', error)
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'No se pudo crear la programación',
+        description: error instanceof Error ? error.message : `No se pudo ${editingEvent ? 'actualizar' : 'crear'} la programación`,
+        variant: 'destructive'
+      })
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!editingEvent) return
+
+    const confirmDelete = confirm('¿Estás seguro de eliminar esta programación?')
+    if (!confirmDelete) return
+
+    try {
+      console.log('Eliminando booking:', editingEvent.id)
+      await deleteBooking(editingEvent.id)
+
+      toast({
+        title: 'Éxito',
+        description: 'Programación eliminada correctamente'
+      })
+
+      // Cerrar dialog y resetear
+      setDialogOpen(false)
+      setFormData({
+        technician_id: '',
+        title: '',
+        notes: '',
+        start_time: '',
+        end_time: '',
+        status: 'pending'
+      })
+      setIsAvailable(null)
+      setEditingEvent(null)
+
+      // Recargar calendario
+      onBookingCreated?.()
+    } catch (error) {
+      console.error('Error eliminando booking:', error)
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'No se pudo eliminar la programación',
         variant: 'destructive'
       })
     }
@@ -353,7 +503,7 @@ export function CalendarioTecnico({
               defaultView="week"
               messages={messages}
               eventPropGetter={eventStyleGetter}
-              onSelectEvent={onSelectEvent}
+              onSelectEvent={handleEventClick}
               onSelectSlot={handleSlotSelect}
               selectable
               popup
@@ -366,11 +516,11 @@ export function CalendarioTecnico({
         </CardContent>
       </Card>
 
-      {/* Dialog para crear nueva programación con validaciones */}
+      {/* Dialog para crear/editar programación con validaciones */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Nueva Programación</DialogTitle>
+            <DialogTitle>{editingEvent ? 'Editar Programación' : 'Nueva Programación'}</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -408,10 +558,10 @@ export function CalendarioTecnico({
               <Input
                 id="start_time"
                 type="datetime-local"
-                value={formData.start_time ? new Date(formData.start_time).toISOString().slice(0, 16) : ''}
+                value={toDatetimeLocal(formData.start_time)}
                 onChange={(e) => {
                   if (e.target.value) {
-                    handleFieldChange('start_time', new Date(e.target.value).toISOString())
+                    handleFieldChange('start_time', fromDatetimeLocal(e.target.value))
                   }
                 }}
                 required
@@ -423,10 +573,10 @@ export function CalendarioTecnico({
               <Input
                 id="end_time"
                 type="datetime-local"
-                value={formData.end_time ? new Date(formData.end_time).toISOString().slice(0, 16) : ''}
+                value={toDatetimeLocal(formData.end_time)}
                 onChange={(e) => {
                   if (e.target.value) {
-                    handleFieldChange('end_time', new Date(e.target.value).toISOString())
+                    handleFieldChange('end_time', fromDatetimeLocal(e.target.value))
                   }
                 }}
                 required
@@ -483,17 +633,20 @@ export function CalendarioTecnico({
             )}
 
             <div className="flex gap-2">
-              <Button 
-                type="submit" 
-                className="flex-1"
-                disabled={isAvailable === false}
-              >
-                {validating ? 'Validando...' : 'Crear Programación'}
-              </Button>
+              {editingEvent && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={handleDelete}
+                  className="mr-auto"
+                >
+                  Eliminar
+                </Button>
+              )}
 
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => {
                   setDialogOpen(false)
                   setFormData({
@@ -505,9 +658,18 @@ export function CalendarioTecnico({
                     status: 'pending'
                   })
                   setIsAvailable(null)
+                  setEditingEvent(null)
                 }}
               >
                 Cancelar
+              </Button>
+
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={isAvailable === false}
+              >
+                {validating ? 'Validando...' : editingEvent ? 'Guardar Cambios' : 'Crear Programación'}
               </Button>
             </div>
           </form>
