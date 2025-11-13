@@ -113,6 +113,23 @@ export function CalendarioTecnico({
     status: 'pending'
   })
 
+  // Función para resetear el formulario y estados
+  const resetForm = () => {
+    console.log('🔄 Reseteando formulario')
+    setFormData({
+      technician_id: '',
+      title: '',
+      notes: '',
+      start_time: '',
+      end_time: '',
+      status: 'pending'
+    })
+    setIsAvailable(null)
+    setHorasInvalidas(false)
+    setEditingEvent(null)
+    setValidating(false)
+  }
+
   // Validación automática de disponibilidad
   const validateAvailability = async (techId: string, start: string, end: string, excludeBookingId?: string) => {
     if (!techId || !start || !end) {
@@ -194,13 +211,10 @@ export function CalendarioTecnico({
 
     console.log('Preparando formulario con:', { technicianId, startTime, endTime })
 
-    // Resetear validación y modo edición
-    setIsAvailable(null)
-    setValidating(false)
-    setHorasInvalidas(false)
-    setEditingEvent(null)
+    // Resetear formulario primero
+    resetForm()
 
-    // Establecer datos del formulario
+    // Establecer datos del formulario con el slot seleccionado
     setFormData({
       technician_id: technicianId,
       title: '',
@@ -258,6 +272,8 @@ export function CalendarioTecnico({
   }
 
   const handleNewProgramacion = () => {
+    console.log('🆕 Abriendo formulario para nueva programación')
+
     // Crear nueva programación con valores por defecto
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
@@ -270,9 +286,10 @@ export function CalendarioTecnico({
 
     const technicianId = technicians.length > 0 ? technicians[0].id : ''
 
-    // Resetear modo edición
-    setEditingEvent(null)
+    // Resetear formulario primero
+    resetForm()
 
+    // Establecer datos del formulario para nueva programación
     setFormData({
       technician_id: technicianId,
       title: '',
@@ -281,10 +298,6 @@ export function CalendarioTecnico({
       end_time: endTime,
       status: 'pending'
     })
-
-    setIsAvailable(null)
-    setValidating(false)
-    setHorasInvalidas(false)
     setDialogOpen(true)
 
     if (technicianId) {
@@ -401,17 +414,7 @@ export function CalendarioTecnico({
 
       // Cerrar dialog y resetear
       setDialogOpen(false)
-      setFormData({
-        technician_id: '',
-        title: '',
-        notes: '',
-        start_time: '',
-        end_time: '',
-        status: 'pending'
-      })
-      setIsAvailable(null)
-      setHorasInvalidas(false)
-      setEditingEvent(null)
+      resetForm()
 
       // Recargar calendario
       onBookingCreated?.()
@@ -442,17 +445,7 @@ export function CalendarioTecnico({
 
       // Cerrar dialog y resetear
       setDialogOpen(false)
-      setFormData({
-        technician_id: '',
-        title: '',
-        notes: '',
-        start_time: '',
-        end_time: '',
-        status: 'pending'
-      })
-      setIsAvailable(null)
-      setHorasInvalidas(false)
-      setEditingEvent(null)
+      resetForm()
 
       // Recargar calendario
       onBookingCreated?.()
@@ -712,17 +705,7 @@ export function CalendarioTecnico({
                 variant="outline"
                 onClick={() => {
                   setDialogOpen(false)
-                  setFormData({
-                    technician_id: '',
-                    title: '',
-                    notes: '',
-                    start_time: '',
-                    end_time: '',
-                    status: 'pending'
-                  })
-                  setIsAvailable(null)
-                  setHorasInvalidas(false)
-                  setEditingEvent(null)
+                  resetForm()
                 }}
               >
                 Cancelar
