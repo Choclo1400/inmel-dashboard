@@ -457,11 +457,17 @@ export function CalendarioTecnico({
       // Recargar calendario
       onBookingCreated?.()
     } catch (error) {
-      console.error('Error eliminando booking:', error)
+      console.error('❌ Error eliminando booking:', error)
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        bookingId: editingEvent.id,
+        error
+      })
       toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'No se pudo eliminar la programación',
-        variant: 'destructive'
+        title: '❌ Error al eliminar',
+        description: error instanceof Error ? error.message : 'No se pudo eliminar la programación. Verifica los permisos en la base de datos.',
+        variant: 'destructive',
+        duration: 6000
       })
     }
   }

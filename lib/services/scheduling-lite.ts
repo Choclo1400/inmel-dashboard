@@ -249,6 +249,8 @@ export interface UpdateBookingData {
 }
 
 export async function updateBooking(id: string, data: UpdateBookingData): Promise<Booking> {
+  console.log('📝 Actualizando booking:', id, data)
+
   const { data: booking, error } = await supabase
     .from('bookings')
     .update(data)
@@ -260,27 +262,41 @@ export async function updateBooking(id: string, data: UpdateBookingData): Promis
     .single()
 
   if (error) {
-    console.error('Error updating booking:', error)
+    console.error('❌ Error updating booking:', error)
+    console.error('Error code:', error.code)
+    console.error('Error message:', error.message)
+    console.error('Error details:', error.details)
+    console.error('Error hint:', error.hint)
     // Detectar errores de overlap
     if (error.code === '23P01' || (typeof error.message === 'string' && error.message.includes('booking_time_overlap'))) {
-      throw new Error('Time slot conflict: Cannot move booking to this time range')
+      throw new Error('Conflicto de horario: No se puede mover la reserva a este rango de tiempo')
     }
-    throw new Error('Failed to update booking')
+    throw new Error(`Error al actualizar: ${error.message}`)
   }
 
+  console.log('✅ Booking actualizado exitosamente:', booking)
   return booking
 }
 
 export async function deleteBooking(id: string): Promise<void> {
-  const { error } = await supabase
+  console.log('🗑️ Iniciando eliminación de booking:', id)
+
+  const { data, error } = await supabase
     .from('bookings')
     .delete()
     .eq('id', id)
+    .select()
 
   if (error) {
-    console.error('Error deleting booking:', error)
-    throw new Error('Failed to delete booking')
+    console.error('❌ Error deleting booking:', error)
+    console.error('Error code:', error.code)
+    console.error('Error message:', error.message)
+    console.error('Error details:', error.details)
+    console.error('Error hint:', error.hint)
+    throw new Error(`Error al eliminar: ${error.message}`)
   }
+
+  console.log('✅ Booking eliminado exitosamente:', data)
 }
 
 // ============================================================================
