@@ -534,10 +534,21 @@ export function SchedulingCalendar({
                     <Input
                       id="start_time"
                       type="datetime-local"
-                      value={formData.start_time ? new Date(formData.start_time).toISOString().slice(0, 16) : ''}
+                      value={formData.start_time ? (() => {
+                        // Convert ISO string to local datetime-local format
+                        const date = new Date(formData.start_time);
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const hours = String(date.getHours()).padStart(2, '0');
+                        const minutes = String(date.getMinutes()).padStart(2, '0');
+                        return `${year}-${month}-${day}T${hours}:${minutes}`;
+                      })() : ''}
                       onChange={(e) => {
                         if (e.target.value) {
-                          setFormData(prev => ({ ...prev, start_time: new Date(e.target.value).toISOString() }))
+                          // Convert local datetime-local format to ISO string
+                          const date = new Date(e.target.value);
+                          setFormData(prev => ({ ...prev, start_time: date.toISOString() }))
                         }
                       }}
                       required
@@ -549,10 +560,21 @@ export function SchedulingCalendar({
                     <Input
                       id="end_time"
                       type="datetime-local"
-                      value={formData.end_time ? new Date(formData.end_time).toISOString().slice(0, 16) : ''}
+                      value={formData.end_time ? (() => {
+                        // Convert ISO string to local datetime-local format
+                        const date = new Date(formData.end_time);
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const hours = String(date.getHours()).padStart(2, '0');
+                        const minutes = String(date.getMinutes()).padStart(2, '0');
+                        return `${year}-${month}-${day}T${hours}:${minutes}`;
+                      })() : ''}
                       onChange={(e) => {
                         if (e.target.value) {
-                          setFormData(prev => ({ ...prev, end_time: new Date(e.target.value).toISOString() }))
+                          // Convert local datetime-local format to ISO string
+                          const date = new Date(e.target.value);
+                          setFormData(prev => ({ ...prev, end_time: date.toISOString() }))
                         }
                       }}
                       required

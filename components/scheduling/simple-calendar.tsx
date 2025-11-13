@@ -441,8 +441,22 @@ export default function SimpleCalendar() {
                     <Input
                       id="start_time"
                       type="datetime-local"
-                      value={formData.start_time.slice(0, 16)}
-                      onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value + ':00.000Z' }))}
+                      value={formData.start_time ? (() => {
+                        // Convert ISO string to local datetime-local format
+                        const date = new Date(formData.start_time);
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const hours = String(date.getHours()).padStart(2, '0');
+                        const minutes = String(date.getMinutes()).padStart(2, '0');
+                        return `${year}-${month}-${day}T${hours}:${minutes}`;
+                      })() : ''}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const date = new Date(e.target.value);
+                          setFormData(prev => ({ ...prev, start_time: date.toISOString() }))
+                        }
+                      }}
                       required
                     />
                   </div>
@@ -452,8 +466,22 @@ export default function SimpleCalendar() {
                     <Input
                       id="end_time"
                       type="datetime-local"
-                      value={formData.end_time.slice(0, 16)}
-                      onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value + ':00.000Z' }))}
+                      value={formData.end_time ? (() => {
+                        // Convert ISO string to local datetime-local format
+                        const date = new Date(formData.end_time);
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const hours = String(date.getHours()).padStart(2, '0');
+                        const minutes = String(date.getMinutes()).padStart(2, '0');
+                        return `${year}-${month}-${day}T${hours}:${minutes}`;
+                      })() : ''}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const date = new Date(e.target.value);
+                          setFormData(prev => ({ ...prev, end_time: date.toISOString() }))
+                        }
+                      }}
                       required
                     />
                   </div>
