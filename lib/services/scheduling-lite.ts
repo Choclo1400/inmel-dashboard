@@ -322,7 +322,8 @@ export async function checkAvailability(
       .select('id')
       .eq('technician_id', technicianId)
       .neq('status', 'canceled')
-      .or(`start_datetime.lt.${endTime},end_datetime.gt.${startTime}`) // Overlap check
+      .lt('start_datetime', endTime)  // Reserva existente empieza antes de que termine la nueva
+      .gt('end_datetime', startTime)  // Reserva existente termina después de que empiece la nueva
 
     if (excludeBookingId) {
       query = query.neq('id', excludeBookingId)
