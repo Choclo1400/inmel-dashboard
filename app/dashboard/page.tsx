@@ -2,7 +2,7 @@ import { getSessionUserWithRole } from '@/lib/auth/role'
 import { NAV_ACCESS, roleHome } from '@/config/nav'
 import { redirect } from 'next/navigation'
 import DashboardLayout from "@/components/layout/dashboard-layout"
-import { AdminDashboard, ManagerDashboard, SupervisorDashboard, TechniciansWelcome, OperatorWelcome } from "@/components/role-dashboards"
+import { AdminDashboard, ManagerDashboard, SupervisorDashboard, TechniciansWelcome, EmployeeWelcome } from "@/components/role-dashboards"
 
 export default async function DashboardPage() {
   const { role } = await getSessionUserWithRole()
@@ -44,7 +44,7 @@ export default async function DashboardPage() {
       case 'technician':
         return <TechniciansWelcome />
       case 'operator':
-        return <OperatorWelcome />
+        return <EmployeeWelcome />
       default:
         return (
           <div className="text-center py-12">

@@ -14,12 +14,12 @@ const supabase = createBrowserClient(
 // Tipos básicos para MVP
 export interface Technician {
   id: string
-  user_id: string
+  user_id?: string
   name: string
   skills: string[]
   is_active: boolean
-  created_at: string
-  updated_at: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface WorkingHours {
@@ -40,7 +40,7 @@ export interface Booking {
   notes?: string // Campo real en BD
   start_datetime: string // ISO timestamp - NOMBRE REAL en BD
   end_datetime: string // ISO timestamp - NOMBRE REAL en BD
-  status: 'pending' | 'confirmed' | 'done' | 'cancelled' // Estados REALES en BD
+  status: 'pending' | 'confirmed' | 'done' | 'canceled' // Estados REALES en BD (DB usa 'canceled')
   created_by?: string
   created_at: string
   updated_at: string
@@ -57,15 +57,24 @@ export async function getTechnicians(): Promise<Technician[]> {
   const { data, error } = await supabase
     .from('technicians')
     .select('*')
-    .eq('is_active', true)
-    .order('name')
+    .eq('activo', true)
+    .order('nombre')
 
   if (error) {
     console.error('Error fetching technicians:', error)
     throw new Error('Failed to fetch technicians')
   }
 
-  return data || []
+  // Mapear columnas de BD (español) a interfaz (inglés)
+  return (data || []).map((t: any) => ({
+    id: t.id,
+    user_id: t.user_id,
+    name: t.nombre ?? t.name ?? 'Técnico',
+    skills: t.skills ?? [],
+    is_active: t.activo ?? t.is_active ?? true,
+    created_at: t.created_at,
+    updated_at: t.updated_at,
+  }))
 }
 
 export async function getTechnicianById(id: string): Promise<Technician | null> {
@@ -153,7 +162,11 @@ export async function getBookings(
     throw new Error('Failed to fetch bookings')
   }
 
-  return data || []
+  // Normalizar estados (DB usa 'canceled')
+  return (data || []).map((b: any) => ({
+    ...b,
+    status: b.status === 'cancelled' ? 'canceled' : b.status
+  }))
 }
 
 export async function getBookingById(id: string): Promise<Booking | null> {
@@ -177,7 +190,7 @@ export async function getBookingById(id: string): Promise<Booking | null> {
 
 export interface CreateBookingData {
   technician_id: string
-  title: string
+  title?: string // Hacer opcional por si la columna no existe en BD
   notes?: string
   start_datetime: string // ISO timestamp
   end_datetime: string
@@ -189,13 +202,25 @@ export async function createBooking(data: CreateBookingData): Promise<Booking> {
   // Obtener usuario actual
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Preparar datos sin title si no existe en BD
+  const bookingData: any = {
+    technician_id: data.technician_id,
+    start_datetime: data.start_datetime,
+    end_datetime: data.end_datetime,
+    status: data.status || 'confirmed',
+    created_by: user?.id
+  }
+
+  // Solo agregar title y notes si están presentes
+  if (data.title) bookingData.title = data.title
+  if (data.notes) bookingData.notes = data.notes
+  if (data.solicitud_id) bookingData.solicitud_id = data.solicitud_id
+
+  console.log('Creating booking with data:', bookingData)
+
   const { data: booking, error } = await supabase
     .from('bookings')
-    .insert({
-      ...data,
-      status: data.status || 'confirmed',
-      created_by: user?.id
-    })
+    .insert(bookingData)
     .select(`
       *,
       technician:technicians(*)
@@ -220,7 +245,7 @@ export interface UpdateBookingData {
   notes?: string
   start_datetime?: string
   end_datetime?: string
-  status?: 'pending' | 'confirmed' | 'done' | 'cancelled'
+  status?: 'pending' | 'confirmed' | 'done' | 'canceled'
 }
 
 export async function updateBooking(id: string, data: UpdateBookingData): Promise<Booking> {
@@ -237,7 +262,7 @@ export async function updateBooking(id: string, data: UpdateBookingData): Promis
   if (error) {
     console.error('Error updating booking:', error)
     // Detectar errores de overlap
-    if (error.code === '23P01' || error.message.includes('booking_time_overlap')) {
+    if (error.code === '23P01' || (typeof error.message === 'string' && error.message.includes('booking_time_overlap'))) {
       throw new Error('Time slot conflict: Cannot move booking to this time range')
     }
     throw new Error('Failed to update booking')
@@ -296,7 +321,7 @@ export async function checkAvailability(
       .from('bookings')
       .select('id')
       .eq('technician_id', technicianId)
-      .neq('status', 'cancelled')
+      .neq('status', 'canceled')
       .or(`start_datetime.lt.${endTime},end_datetime.gt.${startTime}`) // Overlap check
 
     if (excludeBookingId) {
@@ -348,7 +373,7 @@ export async function getDayAvailableSlots(
 
       // Verificar si hay conflicto con alguna reserva
       const hasConflict = bookings.some(booking => {
-        if (booking.status === 'cancelled') return false
+        if (booking.status === 'canceled') return false
         const bookingStart = new Date(booking.start_datetime)
         const bookingEnd = new Date(booking.end_datetime)
         return current < bookingEnd && slotEnd > bookingStart
@@ -400,7 +425,7 @@ export async function getBookingsByStatus(status: string): Promise<Booking[]> {
       *,
       technician:technicians(*)
     `)
-    .eq('status', status)
+    .eq('status', status === 'cancelled' ? 'canceled' : status)
     .order('start_datetime')
 
   if (error) {
@@ -543,11 +568,11 @@ export async function createBookingFromSolicitud(
  */
 export async function updateBookingStatus(
   bookingId: string,
-  status: 'pending' | 'confirmed' | 'done' | 'cancelled'
+  status: 'pending' | 'confirmed' | 'done' | 'canceled'
 ): Promise<Booking> {
   const { data: booking, error } = await supabase
     .from('bookings')
-    .update({ status })
+    .update({ status: status === 'cancelled' ? 'canceled' : status })
     .eq('id', bookingId)
     .select(`
       *,

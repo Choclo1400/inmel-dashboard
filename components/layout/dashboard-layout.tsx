@@ -54,6 +54,7 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
       else if (raw === 'técnico' || raw === 'tecnico') normalizedRole = 'technician'
       else if (raw === 'empleado') normalizedRole = 'operator'
       else if (raw === 'supervisor') normalizedRole = 'supervisor'
+      else if (raw === 'empleador') normalizedRole = 'employer'
       
       return normalizedRole
     } catch (error) {

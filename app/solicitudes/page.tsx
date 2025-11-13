@@ -141,9 +141,28 @@ function SolicitudesPageClient() {
     }
   }
 
+  // Inicial: carga general; luego se refina según rol cuando perfil esté disponible
   useEffect(() => {
     fetchSolicitudes()
   }, [])
+
+  // Refetch específico para operador (Empleado) para limitar a sus propias solicitudes
+  useEffect(() => {
+    const refetchForOperator = async () => {
+      if (userRole === 'Empleado' && userId) {
+        setLoading(true)
+        try {
+          const ownData = await solicitudesService.getAll({ creado_por: userId })
+          setSolicitudes(ownData)
+        } catch (e) {
+          console.error('Error refetching own solicitudes for Empleado:', e)
+        } finally {
+          setLoading(false)
+        }
+      }
+    }
+    refetchForOperator()
+  }, [userRole, userId])
 
   // 🔥 REALTIME: Suscripción a cambios en la tabla solicitudes
   useEffect(() => {
@@ -198,7 +217,9 @@ function SolicitudesPageClient() {
     }
   }, [])
 
-  const filteredSolicitudes = solicitudes.filter((solicitud) => {
+  // Base visible: si es Empleado ya están filtradas por creado_por vía refetch
+  const baseSolicitudes = solicitudes
+  const filteredSolicitudes = baseSolicitudes.filter((solicitud) => {
     const lowerSearchTerm = searchTerm.toLowerCase()
     const matchesSearch =
       solicitud.numero_solicitud.toLowerCase().includes(lowerSearchTerm) ||
@@ -336,7 +357,7 @@ function SolicitudesPageClient() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-400 text-sm">Total</p>
-                <p className="text-2xl font-bold text-white">{solicitudes.length}</p>
+                <p className="text-2xl font-bold text-white">{filteredSolicitudes.length}</p>
               </div>
               <div className="w-10 h-10 bg-slate-600 rounded-lg flex items-center justify-center">
                 <FileText className="w-5 h-5 text-white" />
@@ -351,7 +372,7 @@ function SolicitudesPageClient() {
               <div>
                 <p className="text-slate-400 text-sm">Pendientes</p>
                 <p className="text-2xl font-bold text-orange-400">
-                  {solicitudes.filter((s) => s.estado === "Pendiente").length}
+                  {filteredSolicitudes.filter((s) => s.estado === "Pendiente").length}
                 </p>
               </div>
               <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
@@ -367,7 +388,7 @@ function SolicitudesPageClient() {
               <div>
                 <p className="text-slate-400 text-sm">En Progreso</p>
                 <p className="text-2xl font-bold text-blue-400">
-                  {solicitudes.filter((s) => s.estado === "En Progreso").length}
+                  {filteredSolicitudes.filter((s) => s.estado === "En Progreso").length}
                 </p>
               </div>
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -383,7 +404,7 @@ function SolicitudesPageClient() {
               <div>
                 <p className="text-slate-400 text-sm">Completadas</p>
                 <p className="text-2xl font-bold text-green-400">
-                  {solicitudes.filter((s) => s.estado === "Completada").length}
+                  {filteredSolicitudes.filter((s) => s.estado === "Completada").length}
                 </p>
               </div>
               <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
@@ -399,7 +420,7 @@ function SolicitudesPageClient() {
               <div>
                 <p className="text-slate-400 text-sm">Críticas</p>
                 <p className="text-2xl font-bold text-red-400">
-                  {solicitudes.filter((s) => s.prioridad === "Crítica").length}
+                  {filteredSolicitudes.filter((s) => s.prioridad === "Crítica").length}
                 </p>
               </div>
               <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
@@ -531,13 +552,15 @@ function SolicitudesPageClient() {
                               Ver Detalles
                             </DropdownMenuItem>
                           </Link>
-                          <DropdownMenuItem
-                            className="text-slate-300 hover:text-white hover:bg-slate-600"
-                            onClick={() => handleEdit(solicitud)}
-                          >
-                            <Edit className="w-4 h-4 mr-2" />
-                            Editar
-                          </DropdownMenuItem>
+                          { (solicitud.creado_por === userId || canApprove) && (
+                            <DropdownMenuItem
+                              className="text-slate-300 hover:text-white hover:bg-slate-600"
+                              onClick={() => handleEdit(solicitud)}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Editar
+                            </DropdownMenuItem>
+                          ) }
 
                           {/* Botón de programación para solicitudes aprobadas con técnico asignado */}
                           {canApprove && (solicitud.estado === "Aprobada" || solicitud.estado === "En Progreso") && solicitud.tecnico_asignado_id && (

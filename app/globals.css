@@ -334,3 +334,254 @@
 .dashboard-calendar-wrapper .fc a:hover {
   color: #6366f1 !important;
 }
+
+/* EXTRA: Overrides para fondo personalizado (#050a16) y mejor contraste de días */
+.dashboard-calendar-wrapper {
+  background-color: #050a16 !important;
+}
+.dashboard-calendar-wrapper .fc .fc-col-header-cell,
+.dashboard-calendar-wrapper .fc .fc-timegrid-slot,
+.dashboard-calendar-wrapper .fc .fc-daygrid-day {
+  background-color: #0d1b34 !important;
+}
+.dashboard-calendar-wrapper .fc .fc-daygrid-day-number,
+.dashboard-calendar-wrapper .fc .fc-timegrid-slot-label,
+.dashboard-calendar-wrapper .fc .fc-col-header-cell-cushion {
+  color: #e6f3ff !important;
+  font-weight: 600;
+}
+.dashboard-calendar-wrapper .fc .fc-day-today {
+  background-color: #11284d !important;
+}
+.dashboard-calendar-wrapper .fc .fc-day-today .fc-daygrid-day-number {
+  color: #7aa9ff !important;
+}
+
+/* ============================================================================
+   REACT-BIG-CALENDAR - Estilos para tema oscuro azul del dashboard
+   ============================================================================ */
+
+/* Wrapper y fondo general */
+.big-calendar-wrapper {
+  background-color: #050a16;
+  border-radius: 0.75rem;
+  padding: 0.5rem;
+}
+
+.big-calendar-wrapper .rbc-calendar {
+  color: #e6f3ff;
+}
+
+/* Toolbar (header con botones y título) */
+.big-calendar-wrapper .rbc-toolbar {
+  padding: 1rem 0.5rem;
+  background-color: #0d1b34;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.big-calendar-wrapper .rbc-toolbar button {
+  background-color: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.big-calendar-wrapper .rbc-toolbar button:hover {
+  background-color: #4f46e5;
+}
+
+.big-calendar-wrapper .rbc-toolbar button:active,
+.big-calendar-wrapper .rbc-toolbar button.rbc-active {
+  background-color: #4338ca;
+}
+
+.big-calendar-wrapper .rbc-toolbar-label {
+  color: #e6f3ff;
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+/* Encabezados de días (header row) */
+.big-calendar-wrapper .rbc-header {
+  background-color: #0d1b34;
+  color: #e6f3ff;
+  font-weight: 600;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid #1e3a5f;
+}
+
+.big-calendar-wrapper .rbc-header + .rbc-header {
+  border-left: 1px solid #1e3a5f;
+}
+
+/* Celdas del calendario */
+.big-calendar-wrapper .rbc-day-bg {
+  background-color: #0a1628;
+  border: 1px solid #1e3a5f;
+}
+
+.big-calendar-wrapper .rbc-day-bg:hover {
+  background-color: #0d1b34;
+}
+
+.big-calendar-wrapper .rbc-off-range-bg {
+  background-color: #050a16;
+}
+
+.big-calendar-wrapper .rbc-today {
+  background-color: #11284d !important;
+}
+
+/* Números de días en vista mensual */
+.big-calendar-wrapper .rbc-date-cell {
+  color: #e6f3ff;
+  padding: 0.5rem;
+}
+
+.big-calendar-wrapper .rbc-off-range {
+  color: #4a5d7a;
+}
+
+.big-calendar-wrapper .rbc-now {
+  color: #7aa9ff;
+  font-weight: 700;
+}
+
+/* Time slots (vista semanal/diaria) */
+.big-calendar-wrapper .rbc-time-slot {
+  border-top: 1px solid #1e3a5f;
+  color: #8da5c4;
+}
+
+.big-calendar-wrapper .rbc-time-header-content {
+  border-left: 1px solid #1e3a5f;
+}
+
+.big-calendar-wrapper .rbc-timeslot-group {
+  border-left: 1px solid #1e3a5f;
+  background-color: #0a1628;
+}
+
+.big-calendar-wrapper .rbc-time-content {
+  border-top: 1px solid #1e3a5f;
+}
+
+.big-calendar-wrapper .rbc-current-time-indicator {
+  background-color: #6366f1;
+  height: 2px;
+}
+
+/* Labels de tiempo (horas en el sidebar) */
+.big-calendar-wrapper .rbc-label {
+  color: #8da5c4;
+  font-size: 0.875rem;
+}
+
+/* Eventos */
+.big-calendar-wrapper .rbc-event {
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+}
+
+.big-calendar-wrapper .rbc-event:hover {
+  opacity: 0.85;
+  cursor: pointer;
+  filter: brightness(1.1);
+}
+
+.big-calendar-wrapper .rbc-event-label {
+  font-size: 0.75rem;
+}
+
+.big-calendar-wrapper .rbc-event-content {
+  color: white;
+}
+
+/* Selected event */
+.big-calendar-wrapper .rbc-selected {
+  background-color: #4338ca !important;
+}
+
+/* Agenda view */
+.big-calendar-wrapper .rbc-agenda-view {
+  background-color: #0a1628;
+}
+
+.big-calendar-wrapper .rbc-agenda-table {
+  border: 1px solid #1e3a5f;
+}
+
+.big-calendar-wrapper .rbc-agenda-date-cell,
+.big-calendar-wrapper .rbc-agenda-time-cell,
+.big-calendar-wrapper .rbc-agenda-event-cell {
+  background-color: #0d1b34;
+  color: #e6f3ff;
+  border-bottom: 1px solid #1e3a5f;
+  padding: 0.75rem;
+}
+
+.big-calendar-wrapper .rbc-agenda-empty {
+  color: #8da5c4;
+  background-color: #0a1628;
+  padding: 2rem;
+  text-align: center;
+}
+
+/* Show more link */
+.big-calendar-wrapper .rbc-show-more {
+  background-color: rgba(99, 102, 241, 0.2);
+  color: #7aa9ff;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.big-calendar-wrapper .rbc-show-more:hover {
+  background-color: rgba(99, 102, 241, 0.3);
+}
+
+/* Overlay (popup) */
+.big-calendar-wrapper .rbc-overlay {
+  background-color: #0d1b34;
+  border: 1px solid #1e3a5f;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  padding: 0.5rem;
+}
+
+.big-calendar-wrapper .rbc-overlay-header {
+  background-color: #6366f1;
+  color: white;
+  padding: 0.5rem;
+  border-radius: 0.375rem 0.375rem 0 0;
+  margin: -0.5rem -0.5rem 0.5rem -0.5rem;
+  font-weight: 600;
+}
+
+/* Scrollbar personalizado */
+.big-calendar-wrapper .rbc-time-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.big-calendar-wrapper .rbc-time-content::-webkit-scrollbar-track {
+  background: #0d1b34;
+  border-radius: 4px;
+}
+
+.big-calendar-wrapper .rbc-time-content::-webkit-scrollbar-thumb {
+  background: #6366f1;
+  border-radius: 4px;
+}
+
+.big-calendar-wrapper .rbc-time-content::-webkit-scrollbar-thumb:hover {
+  background: #4f46e5;
+}
+

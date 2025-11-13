@@ -21,6 +21,7 @@ export async function getSessionUserWithRole() {
   else if (raw === 'técnico' || raw === 'tecnico') role = 'technician'
   else if (raw === 'empleado') role = 'operator'
   else if (raw === 'supervisor') role = 'supervisor'
+  else if (raw === 'empleador') role = 'employer'
 
   return { user, role, isActive: !!perfil }
 }

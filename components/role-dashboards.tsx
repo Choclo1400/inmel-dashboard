@@ -1,4 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card"
+import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { ClipboardList, CheckCircle, AlertTriangle, Clock, Users, Wrench, UserCheck, TrendingUp, FileText, Settings, MapPin, Calendar } from "lucide-react"
 
@@ -256,26 +257,175 @@ export function TechniciansWelcome() {
   )
 }
 
-// Vista específica para OPERADOR (redirigido a clientes)
-// Necesidades: Registro de clientes y solicitudes
-export function OperatorWelcome() {
+// Vista específica para EMPLEADO (rol interno 'operator')
+// Necesidades: Crear y seguir solo sus propias solicitudes (sin gestión de clientes)
+export function EmployeeWelcome() {
   return (
-    <div className="text-center py-12">
-      <FileText className="w-16 h-16 text-green-400 mx-auto mb-4" />
-      <h2 className="text-2xl font-bold text-white mb-4">¡Bienvenido Operador!</h2>
-      <p className="text-slate-400 mb-6">Tu rol principal es el registro de clientes y entrada de nuevas solicitudes al sistema.</p>
-      <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto">
-        <div className="bg-slate-800 border-slate-700 rounded-lg p-4">
-          <Users className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-          <h3 className="text-white font-medium mb-1">Clientes</h3>
-          <p className="text-sm text-slate-400">Registrar nuevos clientes</p>
-        </div>
-        <div className="bg-slate-800 border-slate-700 rounded-lg p-4">
-          <ClipboardList className="w-8 h-8 text-orange-400 mx-auto mb-2" />
-          <h3 className="text-white font-medium mb-1">Solicitudes</h3>
-          <p className="text-sm text-slate-400">Crear nuevas solicitudes</p>
+    <>
+      <div className="mb-6">
+        <h2 className="text-xl font-bold text-white mb-2">Seguimiento de Mis Solicitudes</h2>
+        <p className="text-slate-400">Acceso rápido para crear y revisar el estado de tus solicitudes</p>
+      </div>
+      <div className="grid grid-cols-4 gap-6 mb-8">
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-400 text-sm font-medium mb-1">Activas</p>
+                <p className="text-3xl font-bold text-blue-400">--</p>
+                <p className="text-blue-400 text-xs mt-1">En curso</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+                <ClipboardList className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-orange-400 text-sm font-medium mb-1">Solicitudes Nuevas</p>
+                <p className="text-3xl font-bold text-orange-400">--</p>
+                <p className="text-orange-400 text-xs mt-1">Hoy</p>
+              </div>
+              <div className="w-12 h-12 bg-orange-600 rounded-lg flex items-center justify-center">
+                <ClipboardList className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-yellow-400 text-sm font-medium mb-1">Pendientes</p>
+                <p className="text-3xl font-bold text-yellow-400">--</p>
+                <p className="text-yellow-400 text-xs mt-1">Requieren datos</p>
+              </div>
+              <div className="w-12 h-12 bg-yellow-600 rounded-lg flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-400 text-sm font-medium mb-1">Completadas</p>
+                <p className="text-3xl font-bold text-green-400">--</p>
+                <p className="text-green-400 text-xs mt-1">Hoy</p>
+              </div>
+              <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="bg-slate-800 border-slate-700 rounded-lg p-6">
+        <h3 className="text-white font-semibold mb-4">Acciones Rápidas</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <Link href="/solicitudes/nueva" className="bg-slate-700 rounded-md p-4 flex flex-col items-center justify-center hover:bg-slate-600 transition">
+            <ClipboardList className="w-8 h-8 text-orange-400 mb-2" />
+            <span className="text-sm text-white font-medium">Nueva Solicitud</span>
+          </Link>
+          <Link href="/solicitudes" className="bg-slate-700 rounded-md p-4 flex flex-col items-center justify-center hover:bg-slate-600 transition">
+            <FileText className="w-8 h-8 text-blue-400 mb-2" />
+            <span className="text-sm text-white font-medium">Mis Solicitudes</span>
+          </Link>
         </div>
       </div>
-    </div>
+    </>
+  )
+}
+
+// Vista específica para EMPLEADOR
+// Necesidades: Ver estado de sus solicitudes, crear nuevas, métricas básicas
+export function EmployerWelcome() {
+  return (
+    <>
+      <div className="mb-6">
+        <h2 className="text-xl font-bold text-white mb-2">Resumen de Solicitudes Propias</h2>
+        <p className="text-slate-400">Estado y métricas de tus peticiones registradas</p>
+      </div>
+
+      <div className="grid grid-cols-4 gap-6 mb-8">
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-indigo-400 text-sm font-medium mb-1">Activas</p>
+                <p className="text-3xl font-bold text-indigo-400">--</p>
+                <p className="text-indigo-400 text-xs mt-1">En curso</p>
+              </div>
+              <div className="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-yellow-400 text-sm font-medium mb-1">Pendientes</p>
+                <p className="text-3xl font-bold text-yellow-400">--</p>
+                <p className="text-yellow-400 text-xs mt-1">Sin asignación</p>
+              </div>
+              <div className="w-12 h-12 bg-yellow-600 rounded-lg flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-400 text-sm font-medium mb-1">Completadas</p>
+                <p className="text-3xl font-bold text-green-400">--</p>
+                <p className="text-green-400 text-xs mt-1">Últimos 30 días</p>
+              </div>
+              <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-300 text-sm font-medium mb-1">Tiempo Promedio</p>
+                <p className="text-3xl font-bold text-slate-300">--</p>
+                <p className="text-slate-400 text-xs mt-1">Resolución</p>
+              </div>
+              <div className="w-12 h-12 bg-slate-600 rounded-lg flex items-center justify-center">
+                <Clock className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="bg-slate-800 border-slate-700 rounded-lg p-6">
+        <h3 className="text-white font-semibold mb-4">Acciones Rápidas</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <Link href="/solicitudes/nueva" className="bg-slate-700 rounded-md p-4 flex flex-col items-center justify-center hover:bg-slate-600 transition">
+            <ClipboardList className="w-8 h-8 text-orange-400 mb-2" />
+            <span className="text-sm text-white font-medium">Nueva Solicitud</span>
+          </Link>
+          <Link href="/solicitudes" className="bg-slate-700 rounded-md p-4 flex flex-col items-center justify-center hover:bg-slate-600 transition">
+            <FileText className="w-8 h-8 text-blue-400 mb-2" />
+            <span className="text-sm text-white font-medium">Mis Solicitudes</span>
+          </Link>
+        </div>
+      </div>
+    </>
   )
 }

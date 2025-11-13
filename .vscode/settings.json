@@ -1,0 +1,4 @@
+{
+    "findUnusedExports.detectCircularImports": false,
+    "C_Cpp.default.compilerPath": ""
+}

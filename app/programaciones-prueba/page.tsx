@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
@@ -9,9 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Can } from "@/components/rbac/Can"
-import { SchedulingCalendar } from "@/components/scheduling/calendar-mvp"
+import { CalendarioTecnico } from "@/components/calendario/calendario-tecnico"
 import { SolicitudesSinProgramar } from "@/components/programaciones/solicitudes-sin-programar"
-import { getTechnicians, getBookings, getBookingsBySolicitudId } from "@/lib/services/scheduling-lite"
+import { getTechnicians, getBookings } from "@/lib/services/scheduling-lite"
 import { solicitudesService } from "@/lib/services/solicitudesService"
 import type { Technician, Booking } from "@/lib/services/scheduling-lite"
 import type { Solicitud } from "@/lib/services/solicitudesService"
@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 import { createClient } from "@/lib/supabase/client"
 
-export default function ProgramacionesPage() {
+export default function ProgramacionesPruebaPage() {
   const [technicians, setTechnicians] = useState<Technician[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
@@ -28,7 +28,20 @@ export default function ProgramacionesPage() {
   const [selectedTechnician, setSelectedTechnician] = useState<string>("all")
   const [selectedStatus, setSelectedStatus] = useState<string>("all")
   const [activeTab, setActiveTab] = useState<string>("calendario")
+  const [realtimeConnected, setRealtimeConnected] = useState(false)
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const { toast } = useToast()
+
+  // Sonido de notificación
+  const playNotificationSound = () => {
+    try {
+      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE=')
+      audio.volume = 0.3
+      audio.play().catch(() => {})
+    } catch (e) {
+      console.log('Audio playback not supported')
+    }
+  }
 
   // Cargar técnicos, bookings y solicitudes al montar
   useEffect(() => {
@@ -63,7 +76,7 @@ export default function ProgramacionesPage() {
       console.error('Error loading data:', error)
       toast({
         title: "Error",
-        description: "No se pudieron cargar los datos. Por favor, recarga la pÃ¡gina.",
+        description: "No se pudieron cargar los datos. Por favor, recarga la página.",
         variant: "destructive"
       })
     } finally {
@@ -71,15 +84,15 @@ export default function ProgramacionesPage() {
     }
   }
 
-  // ðŸ”¥ REALTIME: SuscripciÃ³n a cambios en bookings y solicitudes
+  // 🔥 REALTIME: Suscripción a cambios en bookings y solicitudes
   useEffect(() => {
     const supabase = createClient()
 
-    console.log('ðŸ“¡ [Programaciones] Iniciando suscripciÃ³n Realtime...')
+    console.log('📡 [Programaciones Prueba] Iniciando suscripción Realtime...')
 
     // Canal para escuchar cambios en bookings
     const bookingsChannel = supabase
-      .channel('bookings-realtime')
+      .channel('bookings-realtime-prueba')
       .on(
         'postgres_changes',
         {
@@ -88,19 +101,31 @@ export default function ProgramacionesPage() {
           table: 'bookings'
         },
         (payload: any) => {
-          console.log('ðŸ“¡ [Programaciones] Cambio en bookings:', payload)
+          console.log('📡 [Programaciones Prueba] Cambio en bookings:', payload)
+          setLastUpdate(new Date())
+          playNotificationSound()
 
           if (payload.eventType === 'INSERT') {
+            const newBooking = payload.new
+            const techName = technicians.find(t => t.id === newBooking.technician_id)?.name || 'Desconocido'
             toast({
-              title: "ðŸ“… Nueva programaciÃ³n",
-              description: "Se ha creado una nueva programaciÃ³n",
-              duration: 3000,
+              title: "📅 Nueva programación creada",
+              description: `${newBooking.title || 'Trabajo'} - Técnico: ${techName}`,
+              duration: 5000,
             })
           } else if (payload.eventType === 'UPDATE') {
+            const updatedBooking = payload.new
             toast({
-              title: "ðŸ”„ ProgramaciÃ³n actualizada",
-              description: "Una programaciÃ³n ha sido modificada",
-              duration: 3000,
+              title: "🔄 Programación actualizada",
+              description: `${updatedBooking.title || 'Trabajo'} - Estado: ${updatedBooking.status}`,
+              duration: 4000,
+            })
+          } else if (payload.eventType === 'DELETE') {
+            toast({
+              title: "🗑️ Programación eliminada",
+              description: "Una programación ha sido eliminada del sistema",
+              duration: 4000,
+              variant: "destructive"
             })
           }
 
@@ -108,12 +133,13 @@ export default function ProgramacionesPage() {
         }
       )
       .subscribe((status: any) => {
-        console.log('ðŸ“¡ [Programaciones - Bookings] Estado:', status)
+        console.log('📡 [Programaciones Prueba - Bookings] Estado:', status)
+        setRealtimeConnected(status === 'SUBSCRIBED')
       })
 
     // Canal para escuchar cambios en solicitudes (por si se aprueban nuevas)
     const solicitudesChannel = supabase
-      .channel('solicitudes-programaciones-realtime')
+      .channel('solicitudes-programaciones-realtime-prueba')
       .on(
         'postgres_changes',
         {
@@ -122,13 +148,13 @@ export default function ProgramacionesPage() {
           table: 'solicitudes'
         },
         (payload: any) => {
-          console.log('ðŸ“¡ [Programaciones] Cambio en solicitudes:', payload)
+          console.log('📡 [Programaciones Prueba] Cambio en solicitudes:', payload)
 
           // Si una solicitud se aprueba, puede estar lista para programar
           if (payload.new?.estado === 'Aprobada' && payload.old?.estado !== 'Aprobada') {
             toast({
-              title: "âœ… Solicitud aprobada",
-              description: `${payload.new.numero_solicitud} estÃ¡ lista para programar`,
+              title: "✅ Solicitud aprobada",
+              description: `${payload.new.numero_solicitud} está lista para programar`,
               duration: 5000,
             })
             loadData()
@@ -136,18 +162,18 @@ export default function ProgramacionesPage() {
         }
       )
       .subscribe((status: any) => {
-        console.log('ðŸ“¡ [Programaciones - Solicitudes] Estado:', status)
+        console.log('📡 [Programaciones Prueba - Solicitudes] Estado:', status)
       })
 
     // Cleanup cuando el componente se desmonta
     return () => {
-      console.log('ðŸ“¡ [Programaciones] Cerrando suscripciones Realtime...')
+      console.log('📡 [Programaciones Prueba] Cerrando suscripciones Realtime...')
       supabase.removeChannel(bookingsChannel)
       supabase.removeChannel(solicitudesChannel)
     }
   }, [])
 
-  // Calcular estadÃ­sticas - USANDO ESTADOS REALES DE BD
+  // Calcular estadísticas - USANDO ESTADOS REALES DE BD
   const stats = {
     total: bookings.length,
     scheduled: bookings.filter(b => b.status === 'pending' || b.status === 'confirmed').length,
@@ -156,12 +182,22 @@ export default function ProgramacionesPage() {
     technicians: technicians.length
   }
 
-  // Filtrar bookings segÃºn selecciÃ³n
+  // Filtrar bookings según selección
   const filteredBookings = bookings.filter(booking => {
     const matchesTechnician = selectedTechnician === "all" || booking.technician_id === selectedTechnician
     const matchesStatus = selectedStatus === "all" || booking.status === selectedStatus
     return matchesTechnician && matchesStatus
   })
+
+  // Convertir bookings a formato react-big-calendar
+  const programaciones = filteredBookings.map(booking => ({
+    id: booking.id,
+    title: booking.title || 'Trabajo Técnico',
+    start: new Date(booking.start_datetime),
+    end: new Date(booking.end_datetime),
+    resource: booking.technician_id,
+    status: booking.status as 'pending' | 'confirmed' | 'done' | 'canceled'
+  }))
 
   if (loading) {
     return (
@@ -185,16 +221,43 @@ export default function ProgramacionesPage() {
       {/* Header + Dashboard Button */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Programaciones</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight text-white">
+              Programaciones (PRUEBA - react-big-calendar)
+            </h1>
+            {/* Indicador de conexión realtime */}
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                realtimeConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'
+              }`} />
+              <span className={`text-xs ${
+                realtimeConnected ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {realtimeConnected ? '🔴 EN VIVO' : 'Desconectado'}
+              </span>
+            </div>
+          </div>
           <p className="text-blue-300 mt-1">
-            Gestiona y visualiza todas las programaciones de servicios
+            Gestiona y visualiza todas las programaciones de servicios - Calendario de Prueba
           </p>
+          {lastUpdate && (
+            <p className="text-xs text-slate-400 mt-1">
+              Última actualización: {lastUpdate.toLocaleTimeString()}
+            </p>
+          )}
         </div>
-        <Link href="/dashboard">
-          <Button variant="default" className="bg-blue-600 text-white hover:bg-blue-700">
-            ← Volver al Dashboard
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/programaciones">
+            <Button variant="outline" className="border-blue-600 text-blue-300 hover:bg-blue-900">
+              Ver Original
+            </Button>
+          </Link>
+          <Link href="/dashboard">
+            <Button variant="default" className="bg-blue-600 text-white hover:bg-blue-700">
+              ← Volver al Dashboard
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -369,7 +432,7 @@ export default function ProgramacionesPage() {
             </CardContent>
           </Card>
 
-          {/* Calendario */}
+          {/* Calendario react-big-calendar */}
           {technicians.length === 0 ? (
             <Card className="bg-slate-800 border-slate-700">
               <CardContent className="py-12">
@@ -377,9 +440,9 @@ export default function ProgramacionesPage() {
                   <Users className="w-12 h-12 mx-auto text-slate-400 mb-4" />
                   <h3 className="text-lg font-semibold mb-2 text-white">No hay técnicos disponibles</h3>
                   <p className="text-slate-400 mb-4">
-                    Necesitas crear tÃ©cnicos antes de poder programar servicios.
+                    Necesitas crear técnicos antes de poder programar servicios.
                   </p>
-                  <Can roles={["Admin"]}>
+                  <Can roles={["admin"]}>
                     <Button variant="outline">
                       Ir a Usuarios
                     </Button>
@@ -388,12 +451,13 @@ export default function ProgramacionesPage() {
               </CardContent>
             </Card>
           ) : (
-            <SchedulingCalendar
+            <CalendarioTecnico
+              programaciones={programaciones}
               technicians={technicians}
-              initialBookings={filteredBookings}
+              onSelectEvent={(event) => {
+                console.log('Evento seleccionado:', event)
+              }}
               onBookingCreated={loadData}
-              onBookingUpdated={loadData}
-              onBookingDeleted={loadData}
             />
           )}
         </TabsContent>
@@ -407,22 +471,22 @@ export default function ProgramacionesPage() {
         </TabsContent>
       </Tabs>
 
-      {/* InformaciÃ³n adicional */}
+      {/* Información adicional */}
       <Card className="bg-muted/50">
         <CardHeader>
-          <CardTitle className="text-base">InformaciÃ³n</CardTitle>
+          <CardTitle className="text-base">Información</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex items-start gap-2">
             <div className="w-2 h-2 rounded-full bg-amber-600 mt-1.5" />
             <div>
-              <span className="font-medium">Pendiente:</span> ProgramaciÃ³n creada pero no confirmada
+              <span className="font-medium">Pendiente:</span> Programación creada pero no confirmada
             </div>
           </div>
           <div className="flex items-start gap-2">
             <div className="w-2 h-2 rounded-full bg-blue-600 mt-1.5" />
             <div>
-              <span className="font-medium">Confirmada:</span> Trabajo confirmado con el tÃ©cnico
+              <span className="font-medium">Confirmada:</span> Trabajo confirmado con el técnico
             </div>
           </div>
           <div className="flex items-start gap-2">
@@ -442,4 +506,3 @@ export default function ProgramacionesPage() {
     </div>
   )
 }
-

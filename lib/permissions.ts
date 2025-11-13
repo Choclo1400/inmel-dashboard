@@ -60,7 +60,14 @@ export const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
 
   // OPERADOR: Registro de clientes y solicitudes
   operator: [
-    'clients:create', 'clients:read', 'clients:update',
+    // Permisos mínimos: solo gestionar sus propias solicitudes (creación y lectura)
+    'requests:create', 'requests:read',
+    'tasks:view_own'
+  ],
+
+  // EMPLEADOR: Visualización y creación de sus propias solicitudes y lectura de clientes
+  employer: [
+    'clients:read',
     'requests:create', 'requests:read',
     'tasks:view_own'
   ],

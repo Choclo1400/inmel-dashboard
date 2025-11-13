@@ -47,12 +47,15 @@ export default function LoginPage() {
         throw new Error("Usuario no encontrado")
       }
 
-      // Normalizar el rol
+      // Normalizar el rol (mapeo español -> interno)
       const raw = (perfil?.rol ?? '').toString().toLowerCase()
       let role = raw
       if (raw === 'administrador') role = 'admin'
       else if (raw === 'gestor') role = 'manager'
       else if (raw === 'técnico' || raw === 'tecnico') role = 'technician'
+      else if (raw === 'empleado') role = 'operator'
+      else if (raw === 'supervisor') role = 'supervisor'
+      else if (raw === 'empleador') role = 'employer'
 
       // Redirigir al dashboard correspondiente
       const dashboardUrl = roleHome(role as any)

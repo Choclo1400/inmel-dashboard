@@ -57,7 +57,7 @@ interface BookingFormData {
   notes: string
   start_time: string
   end_time: string
-  status: 'pending' | 'confirmed' | 'done' | 'cancelled'
+  status: 'pending' | 'confirmed' | 'done' | 'canceled'
 }
 
 // Función helper para obtener formulario por defecto con fechas actualizadas
@@ -155,11 +155,13 @@ export function SchedulingCalendar({
 
   // ✅ CORREGIDO: Usar estados correctos de la BD con colores del dashboard
   function getStatusColor(status: string): string {
+    const s = status === 'cancelled' ? 'canceled' : status
     switch (status) {
       case 'pending': return '#f59e0b' // amber - pendiente
       case 'confirmed': return '#6366f1' // indigo/blue - confirmada (color azul del dashboard)
       case 'done': return '#10b981' // emerald - completada
-      case 'cancelled': return '#ef4444' // red - cancelada
+      case 'cancelled':
+      case 'canceled': return '#ef4444' // red - cancelada
       default: return '#6b7280' // gray
     }
   }
@@ -170,7 +172,8 @@ export function SchedulingCalendar({
       case 'pending': return 'Pendiente'
       case 'confirmed': return 'Confirmada'
       case 'done': return 'Completada'
-      case 'cancelled': return 'Cancelada'
+      case 'cancelled':
+      case 'canceled': return 'Cancelada'
       default: return status
     }
   }
@@ -431,16 +434,16 @@ export function SchedulingCalendar({
 
   if (loading) {
     return (
-      <Card>
+      <Card className="bg-blue-950">
         <CardContent className="py-8">
-          <div className="text-center">Cargando calendario...</div>
+          <div className="text-center text-white">Cargando calendario...</div>
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <Card>
+    <Card className="bg-blue-950">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
@@ -609,7 +612,10 @@ export function SchedulingCalendar({
       </CardHeader>
 
       <CardContent>
-        <div className="dashboard-calendar-wrapper">
+        <div
+          className="dashboard-calendar-wrapper border border-blue-800 rounded-xl p-2"
+          style={{ backgroundColor: '#050a16' }}
+        >
           <FullCalendar
             key={`${view}-${bookings.length}`}
             plugins={[dayGridPlugin, timeGridPlugin, resourceTimelinePlugin, interactionPlugin]}
@@ -619,6 +625,10 @@ export function SchedulingCalendar({
               right: '' // Views handled by our custom selector
             }}
             initialView={view}
+            nowIndicator={true}
+            stickyHeaderDates={true}
+            expandRows={true}
+            firstDay={1}
             views={{
               resourceTimelineDay: {
                 type: 'resourceTimeline',
@@ -648,6 +658,8 @@ export function SchedulingCalendar({
             slotMinTime="06:00:00"
             slotMaxTime="22:00:00"
             allDaySlot={false}
+            slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
+            eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
 
             // ✅ Business Hours: 8am-6pm como solicitado
             businessHours={{

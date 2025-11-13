@@ -398,6 +398,38 @@ Para verificar que las mejoras están funcionando:
 
 - [x] `npm run build` compila sin errores
 - [x] `npm run dev` inicia correctamente
+- [x] Rol Empleado restringido a sus propias solicitudes (RLS + UI)
+- [x] Eliminado acceso a sección Clientes para Empleado
+- [x] Dashboard Empleado ajustado (sin métricas de clientes ni acción Nuevo Cliente)
+- [x] Navegación actualizada: home Empleado ahora `/solicitudes`
+- [x] Script `015_adjust_operator_role.sql` aplicado para políticas SELECT/INSERT propias
+
+---
+
+## 🔐 Ajustes Rol Empleado (Operator)
+
+### Objetivo
+Alinear el rol Empleado con el principio de mínimo privilegio: sólo crear y ver el estado de sus propias solicitudes, sin gestión de clientes ni acceso a solicitudes de otros usuarios.
+
+### Cambios Clave
+- Permisos reducidos en `lib/permissions.ts`: removidos `clients:*`.
+- Navegación (`config/nav.ts`): eliminado Empleado de `Clientes`; agregado a `Solicitudes`; `ROLE_HOME` actualizado.
+- RLS (`scripts/015_adjust_operator_role.sql`): políticas SELECT/INSERT condicionadas a `created_by = auth.uid()` para tablas `service_requests` y `solicitudes`.
+- UI página `app/solicitudes/page.tsx`: refetch específico si rol === 'Empleado' aplicando filtro `creado_por`; métricas y tabla reflejan sólo sus registros; botón Editar visible sólo para creador o roles aprobadores.
+- Dashboard Empleado (`components/role-dashboards.tsx`): removidas métricas de clientes y acción "Nuevo Cliente".
+
+### Validaciones Requeridas Post-Deploy
+1. Ingresar como usuario Empleado y confirmar que la sección Clientes no aparece.
+2. Crear una solicitud y verificar que sólo esa solicitud se muestra en `/solicitudes`.
+3. Intentar acceder manualmente a una solicitud de otro usuario (debe fallar por RLS o no mostrarla).
+4. Confirmar que no aparece opción de editar solicitudes ajenas.
+
+### Próximos Mejoras (Pendientes)
+- Integrar métricas reales en Dashboard Empleado (`fetchEmployeeMetrics`).
+- Paginación y optimización de consultas filtradas.
+- Tests automáticos de RLS para operator.
+
+---
 - [x] Security headers visibles en Network tab (DevTools)
 - [x] Badges se renderizan correctamente
 - [x] Zod instalado (`package.json` lo incluye)
