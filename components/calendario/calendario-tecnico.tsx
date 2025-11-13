@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
-import { createBooking, updateBooking, deleteBooking, checkAvailability, type CreateBookingData } from '@/lib/services/scheduling-lite'
+import { createBooking, updateBooking, deleteBooking, checkAvailability, getWorkingHours, type CreateBookingData, type WorkingHours } from '@/lib/services/scheduling-lite'
 
 // Configurar moment en español
 moment.locale('es')
@@ -101,7 +101,8 @@ export function CalendarioTecnico({
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null)
   const [horasInvalidas, setHorasInvalidas] = useState(false)
   const [editingEvent, setEditingEvent] = useState<Programacion | null>(null)
-  const { toast } = useToast()
+  const [technicianWorkingHours, setTechnicianWorkingHours] = useState<WorkingHours[]>([])
+  const { toast} = useToast()
 
   // Estado del formulario
   const [formData, setFormData] = useState<BookingFormData>({
@@ -163,10 +164,32 @@ export function CalendarioTecnico({
     }
   }
 
+  // Cargar horarios del técnico
+  const loadTechnicianSchedule = async (technicianId: string) => {
+    if (!technicianId) {
+      setTechnicianWorkingHours([])
+      return
+    }
+
+    try {
+      const hours = await getWorkingHours(technicianId)
+      console.log('📅 [HORARIO] Horarios del técnico:', hours)
+      setTechnicianWorkingHours(hours)
+    } catch (error) {
+      console.error('❌ Error cargando horarios:', error)
+      setTechnicianWorkingHours([])
+    }
+  }
+
   // Validar automáticamente cuando cambian los datos
-  const handleFieldChange = (field: keyof BookingFormData, value: string) => {
+  const handleFieldChange = async (field: keyof BookingFormData, value: string) => {
     const newFormData = { ...formData, [field]: value }
     setFormData(newFormData)
+
+    // Si cambió el técnico, cargar sus horarios
+    if (field === 'technician_id') {
+      await loadTechnicianSchedule(value)
+    }
 
     // Validar automáticamente si tenemos todos los datos necesarios
     if (newFormData.technician_id && newFormData.start_time && newFormData.end_time) {
@@ -227,8 +250,9 @@ export function CalendarioTecnico({
     // Abrir dialog
     setDialogOpen(true)
 
-    // Validar disponibilidad si hay técnico
+    // Cargar horarios y validar disponibilidad si hay técnico
     if (technicianId) {
+      loadTechnicianSchedule(technicianId)
       setTimeout(() => {
         validateAvailability(technicianId, startTime, endTime)
       }, 200)
@@ -263,8 +287,9 @@ export function CalendarioTecnico({
     // Abrir dialog
     setDialogOpen(true)
 
-    // Validar disponibilidad excluyendo el evento actual
+    // Cargar horarios y validar disponibilidad excluyendo el evento actual
     if (technicianId) {
+      loadTechnicianSchedule(technicianId)
       setTimeout(() => {
         validateAvailability(technicianId, startTime, endTime, event.id)
       }, 200)
@@ -301,6 +326,7 @@ export function CalendarioTecnico({
     setDialogOpen(true)
 
     if (technicianId) {
+      loadTechnicianSchedule(technicianId)
       setTimeout(() => {
         validateAvailability(technicianId, startTime, endTime)
       }, 200)
@@ -591,6 +617,33 @@ export function CalendarioTecnico({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Mostrar horario del técnico seleccionado */}
+            {formData.technician_id && technicianWorkingHours.length > 0 && (
+              <div className="p-3 bg-blue-950/30 rounded-lg border border-blue-800">
+                <p className="text-xs font-medium text-blue-300 mb-2">📅 Horario disponible:</p>
+                <div className="grid grid-cols-2 gap-1 text-xs text-slate-300">
+                  {technicianWorkingHours.map((wh) => {
+                    const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+                    return (
+                      <div key={wh.id} className="flex items-center gap-1">
+                        <span className="font-medium text-blue-400">{dias[wh.weekday]}:</span>
+                        <span>{wh.start_time} - {wh.end_time}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Mensaje si no tiene horarios configurados */}
+            {formData.technician_id && technicianWorkingHours.length === 0 && (
+              <div className="p-3 bg-orange-950/30 rounded-lg border border-orange-800">
+                <p className="text-xs text-orange-300">
+                  ⚠️ Este técnico no tiene horarios configurados
+                </p>
+              </div>
+            )}
 
             <div>
               <Label htmlFor="title">Título</Label>
