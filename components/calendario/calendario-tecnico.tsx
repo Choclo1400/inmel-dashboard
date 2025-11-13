@@ -489,6 +489,15 @@ export function CalendarioTecnico({
     showMore: (total: number) => `+ Ver más (${total})`
   }
 
+  // Formatos personalizados para la vista Agenda
+  const formats = {
+    agendaDateFormat: (date: Date) => moment(date).format('DD/MM/YYYY'),
+    agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
+      `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
+    agendaHeaderFormat: ({ start, end }: { start: Date; end: Date }) =>
+      `${moment(start).format('DD/MM/YYYY')} - ${moment(end).format('DD/MM/YYYY')}`,
+  }
+
   // Estilo por estado
   const eventStyleGetter = (event: Programacion) => {
     let backgroundColor = '#6366f1' // azul por defecto
@@ -548,6 +557,7 @@ export function CalendarioTecnico({
               onNavigate={setDate}
               defaultView="week"
               messages={messages}
+              formats={formats}
               eventPropGetter={eventStyleGetter}
               onSelectEvent={handleEventClick}
               onSelectSlot={handleSlotSelect}

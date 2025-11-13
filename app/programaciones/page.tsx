@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Can } from "@/components/rbac/Can"
 import { CalendarioTecnico } from "@/components/calendario/calendario-tecnico"
 import { SolicitudesSinProgramar } from "@/components/programaciones/solicitudes-sin-programar"
+import { ExcelUploader } from "@/components/programaciones/excel-uploader"
 import { getTechnicians, getBookings } from "@/lib/services/scheduling-lite"
 import { solicitudesService } from "@/lib/services/solicitudesService"
 import type { Technician, Booking } from "@/lib/services/scheduling-lite"
@@ -352,6 +353,11 @@ export default function ProgramacionesPage() {
 
         {/* Tab: Calendario */}
         <TabsContent value="calendario" className="space-y-4">
+          {/* Importar Excel - Solo Admin */}
+          <Can roles={["admin"]}>
+            <ExcelUploader onUploadSuccess={loadData} />
+          </Can>
+
           {/* Filtros */}
           <Card className="bg-slate-800 border-slate-700">
             <CardHeader>

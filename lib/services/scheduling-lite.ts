@@ -589,7 +589,7 @@ export async function updateBookingStatus(
 ): Promise<Booking> {
   const { data: booking, error } = await supabase
     .from('bookings')
-    .update({ status: status === 'cancelled' ? 'canceled' : status })
+    .update({ status: status === 'canceled' ? 'canceled' : status })
     .eq('id', bookingId)
     .select(`
       *,
