@@ -149,18 +149,63 @@ Antes de empezar las pruebas, asegúrate de:
 
 **IMPORTANTE**: Solo visible si eres Admin
 
+#### Formato del Excel
+
+El archivo Excel debe tener las siguientes columnas (se aceptan nombres en español o inglés):
+
+| Columna | Nombres Aceptados | Tipo | Obligatorio |
+|---------|------------------|------|-------------|
+| A | ID Técnico / technician_id / Tecnico | UUID | ✅ Sí |
+| B | Título / title / Titulo | Texto | ❌ No (default: "Trabajo Técnico") |
+| C | Fecha Inicio / start_datetime / FechaInicio | YYYY-MM-DD HH:MM | ✅ Sí |
+| D | Fecha Fin / end_datetime / FechaFin | YYYY-MM-DD HH:MM | ✅ Sí |
+| E | Estado / status | pending/confirmed/done/canceled | ❌ No (default: "pending") |
+| F | Notas / notes | Texto | ❌ No |
+
+**Ejemplo de datos válidos**:
+```
+ID Técnico                            | Título                    | Fecha Inicio      | Fecha Fin         | Estado    | Notas
+--------------------------------------|---------------------------|-------------------|-------------------|-----------|------------------
+a1b2c3d4-5678-90ab-cdef-123456789abc | Mantenimiento             | 2025-11-15 09:00  | 2025-11-15 11:00  | pending   | Cliente VIP
+a1b2c3d4-5678-90ab-cdef-123456789abc | Reparación transformador  | 2025-11-15 14:00  | 2025-11-15 16:00  | confirmed |
+```
+
+#### Pasos de Prueba
+
 1. Verifica que arriba del calendario aparezca la tarjeta **"Importar desde Excel"**
-2. Arrastra un archivo .xlsx o .xls sobre la zona de drag & drop
-3. Verifica que aparezca el nombre y tamaño del archivo
-4. Haz clic en **"Subir archivo"**
-5. Verifica que:
+2. Crea un archivo Excel con el formato indicado arriba
+3. Arrastra el archivo .xlsx o .xls sobre la zona de drag & drop (o usa "Seleccionar archivo")
+4. Verifica que aparezca:
+   - Nombre del archivo
+   - Tamaño en KB
+   - Icono verde de archivo
+5. Haz clic en **"Subir archivo"**
+6. Verifica que:
    - Aparezca spinner "Subiendo..."
-   - Se muestre toast de éxito
-   - El archivo se suba a Supabase Storage
+   - En la consola del navegador (F12) veas logs con emojis:
+     - 📊 Datos del Excel: [array de filas]
+     - 📝 [1/N] Procesando: {datos de la fila}
+     - ✅ [1/N] Creada exitosamente
+   - Se muestre toast con resultado:
+     - Si todas exitosas: "✅ Importación completada: N de N programaciones creadas"
+     - Si hay errores: "⚠️ Algunas programaciones fallaron: X errores"
+   - El calendario se actualice automáticamente con las nuevas programaciones
+   - El archivo se suba a Supabase Storage como respaldo
+
+#### Manejo de Errores
+
+Si hay errores durante la importación:
+1. Abre la consola del navegador (F12)
+2. Busca mensajes con ❌ que indican qué falló
+3. Los errores comunes incluyen:
+   - "Faltan datos requeridos: ID Técnico, Fecha Inicio o Fecha Fin"
+   - "Conflicto de horario con otra programación"
+   - "ID de técnico no existe"
+4. Corrige las filas con errores y vuelve a importar
 
 **Si NO eres admin**: La tarjeta NO debería aparecer
 
-**Resultado esperado**: ✅ Solo admin puede subir Excel
+**Resultado esperado**: ✅ Excel procesado y programaciones creadas en base de datos
 
 ---
 
