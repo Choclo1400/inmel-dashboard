@@ -193,7 +193,7 @@ export function CalendarioTecnico({
 
     // Validar automáticamente si tenemos todos los datos necesarios
     if (newFormData.technician_id && newFormData.start_time && newFormData.end_time) {
-      // VALIDACIÓN: Verificar que hora inicio < hora fin
+      // VALIDACIÓN 1: Verificar que hora inicio < hora fin
       const startDate = new Date(newFormData.start_time)
       const endDate = new Date(newFormData.end_time)
 
@@ -206,6 +206,21 @@ export function CalendarioTecnico({
           variant: "destructive"
         })
         return
+      }
+
+      // VALIDACIÓN 2: No programar en el pasado (solo para crear, no editar)
+      if (!editingEvent) {
+        const now = new Date()
+        if (startDate < now) {
+          setHorasInvalidas(true)
+          setIsAvailable(false)
+          toast({
+            title: "❌ Fecha en el pasado",
+            description: "No se pueden crear programaciones en el pasado. Selecciona una fecha/hora futura.",
+            variant: "destructive"
+          })
+          return
+        }
       }
 
       // Horas válidas, resetear estado
@@ -390,8 +405,8 @@ export function CalendarioTecnico({
       const now = new Date()
       if (startDate < now) {
         toast({
-          title: 'Error de validación',
-          description: 'No se pueden crear programaciones en el pasado',
+          title: '❌ Fecha en el pasado',
+          description: 'No se pueden crear programaciones en el pasado. Selecciona una fecha/hora futura.',
           variant: 'destructive'
         })
         return
@@ -692,6 +707,23 @@ export function CalendarioTecnico({
                 required
               />
             </div>
+
+            {/* Advertencia si está intentando programar en el pasado */}
+            {!editingEvent && formData.start_time && new Date(formData.start_time) < new Date() && (
+              <div className="p-3 bg-red-950/30 rounded-lg border border-red-800">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-red-300">
+                      ⏰ Fecha/hora en el pasado
+                    </p>
+                    <p className="text-xs text-red-400/80">
+                      No puedes crear programaciones en el pasado. Selecciona una fecha/hora futura.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div>
               <Label htmlFor="status">Estado</Label>
