@@ -183,13 +183,17 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
                 </div>
                 <div className="flex items-center justify-between w-full mt-1">
                   <span className="text-xs text-slate-500">{formatTime(notification.created_at)}</span>
-                  {notification.solicitud_id && (
+                  {(notification.solicitud_id || notification.booking_id) && (
                     <Link
-                      href={`/solicitudes/${notification.solicitud_id}`}
+                      href={
+                        notification.booking_id
+                          ? `/programaciones`
+                          : `/solicitudes/${notification.solicitud_id}`
+                      }
                       className="text-xs text-blue-400 hover:text-blue-300"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      Ver solicitud
+                      {notification.booking_id ? 'Ver programación' : 'Ver solicitud'}
                     </Link>
                   )}
                 </div>

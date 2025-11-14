@@ -158,18 +158,20 @@ function NotificationsPageContent() {
 
   const handleNotificationClick = (notification: Notification) => {
     // Marcar como leída si no lo está
-    if (!notification.read) {
+    if (!notification.is_read) {
       markAsRead(notification.id)
     }
 
-    // Navegar a la solicitud relacionada si existe
-    if (notification.related_id) {
-      router.push(`/solicitudes/${notification.related_id}`)
+    // Navegar según el tipo de recurso relacionado
+    if (notification.booking_id) {
+      router.push('/programaciones')
+    } else if (notification.solicitud_id) {
+      router.push(`/solicitudes/${notification.solicitud_id}`)
     }
   }
 
   const filteredNotifications = notifications.filter((notification) => {
-    if (filter === "unread") return !notification.read
+    if (filter === "unread") return !notification.is_read
     if (filter === "important") return notification.type === "error" || notification.type === "warning"
     return true
   })
@@ -336,7 +338,7 @@ function NotificationsPageContent() {
                 <div key={notification.id}>
                   <div
                     className={`p-4 sm:p-6 hover:bg-slate-700/50 transition-colors cursor-pointer ${
-                      !notification.read ? "bg-slate-700/30" : ""
+                      !notification.is_read ? "bg-slate-700/30" : ""
                     }`}
                     onClick={() => handleNotificationClick(notification)}
                   >
@@ -350,12 +352,12 @@ function NotificationsPageContent() {
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <h3
                                 className={`font-medium text-sm sm:text-base ${
-                                  !notification.read ? "text-white" : "text-slate-300"
+                                  !notification.is_read ? "text-white" : "text-slate-300"
                                 }`}
                               >
                                 {notification.title}
                               </h3>
-                              {!notification.read && (
+                              {!notification.is_read && (
                                 <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
                               )}
                             </div>
@@ -373,7 +375,7 @@ function NotificationsPageContent() {
                             </div>
                           </div>
                           <div className="flex gap-1 sm:gap-2 flex-shrink-0">
-                            {!notification.read && (
+                            {!notification.is_read && (
                               <Button
                                 variant="ghost"
                                 size="sm"

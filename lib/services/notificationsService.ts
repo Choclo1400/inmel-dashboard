@@ -1,4 +1,6 @@
 import { createClient } from "../supabase/client"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
 
 export interface Notification {
   id: string
@@ -8,6 +10,7 @@ export interface Notification {
   type: "info" | "success" | "warning" | "error"
   is_read: boolean
   solicitud_id?: string
+  booking_id?: string
   created_at: string
 }
 
@@ -17,6 +20,7 @@ export interface CreateNotificationData {
   message: string
   type: "info" | "success" | "warning" | "error"
   solicitud_id?: string
+  booking_id?: string
 }
 
 export class NotificationsService {
@@ -333,6 +337,136 @@ export class NotificationsService {
       message: `Tiene ${cantidadPendientes} solicitud${cantidadPendientes !== 1 ? "es" : ""} pendiente${cantidadPendientes !== 1 ? "s" : ""} de revisión.`,
       type: "warning",
     })
+  }
+
+  // ============================================================================
+  // NOTIFICACIONES PARA PROGRAMACIONES (BOOKINGS)
+  // ============================================================================
+
+  /**
+   * Notifica creación de una nueva programación
+   */
+  async notifyBookingCreated(
+    booking: {
+      id: string
+      title?: string
+      start_datetime: string
+      end_datetime: string
+    },
+    recipientIds: string[]
+  ): Promise<void> {
+    if (recipientIds.length === 0) return
+
+    const startDate = new Date(booking.start_datetime)
+    const endDate = new Date(booking.end_datetime)
+    const duration = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60)) // minutos
+
+    const message = `📅 ${format(startDate, "dd/MM/yyyy HH:mm", { locale: es })} - ${format(endDate, "HH:mm", { locale: es })} (${duration} min)\n📌 ${booking.title || "Sin título"}`
+
+    await this.createMany(
+      recipientIds.map((userId) => ({
+        user_id: userId,
+        title: "Nueva programación asignada",
+        message,
+        type: "info" as const,
+        booking_id: booking.id,
+      }))
+    )
+  }
+
+  /**
+   * Notifica actualización de una programación
+   */
+  async notifyBookingUpdated(
+    booking: {
+      id: string
+      title?: string
+      start_datetime: string
+      end_datetime: string
+    },
+    recipientIds: string[]
+  ): Promise<void> {
+    if (recipientIds.length === 0) return
+
+    const startDate = new Date(booking.start_datetime)
+    const endDate = new Date(booking.end_datetime)
+    const duration = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60))
+
+    const message = `📅 ${format(startDate, "dd/MM/yyyy HH:mm", { locale: es })} - ${format(endDate, "HH:mm", { locale: es })} (${duration} min)\n📌 ${booking.title || "Sin título"}`
+
+    await this.createMany(
+      recipientIds.map((userId) => ({
+        user_id: userId,
+        title: "Programación actualizada",
+        message,
+        type: "info" as const,
+        booking_id: booking.id,
+      }))
+    )
+  }
+
+  /**
+   * Notifica eliminación de una programación
+   */
+  async notifyBookingDeleted(
+    booking: {
+      id: string
+      title?: string
+      start_datetime: string
+    },
+    recipientIds: string[]
+  ): Promise<void> {
+    if (recipientIds.length === 0) return
+
+    const startDate = new Date(booking.start_datetime)
+
+    const message = `📅 ${format(startDate, "dd/MM/yyyy HH:mm", { locale: es })}\n📌 ${booking.title || "Sin título"}`
+
+    await this.createMany(
+      recipientIds.map((userId) => ({
+        user_id: userId,
+        title: "Programación eliminada",
+        message,
+        type: "warning" as const,
+        booking_id: booking.id,
+      }))
+    )
+  }
+
+  /**
+   * Notifica cambio de estado de una programación
+   */
+  async notifyBookingStatusChanged(
+    booking: {
+      id: string
+      title?: string
+      start_datetime: string
+    },
+    oldStatus: string,
+    newStatus: string,
+    recipientIds: string[]
+  ): Promise<void> {
+    if (recipientIds.length === 0) return
+
+    const statusLabels: Record<string, string> = {
+      pending: "Pendiente",
+      confirmed: "Confirmada",
+      done: "Completada",
+      canceled: "Cancelada",
+    }
+
+    const startDate = new Date(booking.start_datetime)
+    const message = `Estado: ${statusLabels[oldStatus] || oldStatus} → ${statusLabels[newStatus] || newStatus}\n📅 ${format(startDate, "dd/MM/yyyy HH:mm", { locale: es })}\n📌 ${booking.title || "Sin título"}`
+
+    await this.createMany(
+      recipientIds.map((userId) => ({
+        user_id: userId,
+        title: "Estado de programación actualizado",
+        message,
+        type: (newStatus === "canceled" ? "error" : newStatus === "done" ? "success" : "info") as const,
+        booking_id: booking.id,
+      }))
+    )
   }
 }
 
