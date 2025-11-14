@@ -639,9 +639,17 @@ export function CalendarioTecnico({
             {/* Mensaje si no tiene horarios configurados */}
             {formData.technician_id && technicianWorkingHours.length === 0 && (
               <div className="p-3 bg-orange-950/30 rounded-lg border border-orange-800">
-                <p className="text-xs text-orange-300">
-                  ⚠️ Este técnico no tiene horarios configurados
-                </p>
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-orange-400 mt-0.5 flex-shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-orange-300">
+                      ⚠️ Técnico sin horarios configurados
+                    </p>
+                    <p className="text-xs text-orange-400/80">
+                      Puedes crear la programación de todos modos, pero se recomienda configurar los horarios del técnico primero.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
 

@@ -314,22 +314,38 @@ export async function checkAvailability(
   excludeBookingId?: string
 ): Promise<boolean> {
   try {
+    console.log('🔍 [CHECK AVAILABILITY] Validando disponibilidad para:', { technicianId, startTime, endTime })
+
     // 1. Verificar horarios de trabajo
     const workingHours = await getWorkingHours(technicianId)
+    console.log('📅 [CHECK AVAILABILITY] Horarios encontrados:', workingHours.length)
+
     const startDate = new Date(startTime)
     const dayOfWeek = startDate.getDay()
 
     const workingToday = workingHours.find(wh => wh.weekday === dayOfWeek)
-    if (!workingToday) {
+
+    // Si no tiene horarios configurados, permitir pero con advertencia
+    if (workingHours.length === 0) {
+      console.log('⚠️ [CHECK AVAILABILITY] Técnico sin horarios configurados - permitiendo crear')
+      // Solo verificar conflictos, no horarios
+    } else if (!workingToday) {
+      console.log('❌ [CHECK AVAILABILITY] No trabaja este día de la semana')
       return false // No trabaja este día
-    }
+    } else {
+      // 2. Verificar que esté dentro del horario configurado
+      const startTimeStr = startDate.toTimeString().slice(0, 5) // HH:MM
+      const endTimeStr = new Date(endTime).toTimeString().slice(0, 5)
 
-    // 2. Verificar que esté dentro del horario
-    const startTimeStr = startDate.toTimeString().slice(0, 5) // HH:MM
-    const endTimeStr = new Date(endTime).toTimeString().slice(0, 5)
+      console.log('⏰ [CHECK AVAILABILITY] Comparando horarios:', {
+        solicitado: `${startTimeStr} - ${endTimeStr}`,
+        permitido: `${workingToday.start_time} - ${workingToday.end_time}`
+      })
 
-    if (startTimeStr < workingToday.start_time || endTimeStr > workingToday.end_time) {
-      return false // Fuera del horario de trabajo
+      if (startTimeStr < workingToday.start_time || endTimeStr > workingToday.end_time) {
+        console.log('❌ [CHECK AVAILABILITY] Fuera del horario de trabajo')
+        return false // Fuera del horario de trabajo
+      }
     }
 
     // 3. Verificar conflictos con otras reservas - USANDO NOMBRES REALES
@@ -345,11 +361,20 @@ export async function checkAvailability(
       query = query.neq('id', excludeBookingId)
     }
 
-    const { data: conflicts } = await query
+    const { data: conflicts, error: queryError } = await query
 
-    return !conflicts || conflicts.length === 0
+    if (queryError) {
+      console.error('❌ [CHECK AVAILABILITY] Error en query:', queryError)
+      throw queryError
+    }
+
+    const hasConflicts = conflicts && conflicts.length > 0
+    console.log('🔍 [CHECK AVAILABILITY] Conflictos encontrados:', conflicts?.length || 0)
+    console.log('✅ [CHECK AVAILABILITY] Disponible:', !hasConflicts)
+
+    return !hasConflicts
   } catch (error) {
-    console.error('Error checking availability:', error)
+    console.error('❌ [CHECK AVAILABILITY] Error general:', error)
     return false
   }
 }

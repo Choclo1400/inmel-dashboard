@@ -6,15 +6,26 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
+import * as XLSX from 'xlsx'
+import { createBooking } from '@/lib/services/scheduling-lite'
 
 interface ExcelUploaderProps {
   onUploadSuccess?: () => void
+}
+
+interface ProcessResult {
+  total: number
+  successful: number
+  failed: number
+  errors: string[]
 }
 
 export function ExcelUploader({ onUploadSuccess }: ExcelUploaderProps) {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
+  const [processing, setProcessing] = useState(false)
+  const [progress, setProgress] = useState({ current: 0, total: 0 })
   const { toast } = useToast()
 
   const handleDrag = (e: React.DragEvent) => {
@@ -81,6 +92,81 @@ export function ExcelUploader({ onUploadSuccess }: ExcelUploaderProps) {
     })
   }
 
+  const processExcelFile = async (file: File): Promise<ProcessResult> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+
+      reader.onload = async (e) => {
+        try {
+          const data = e.target?.result
+          const workbook = XLSX.read(data, { type: 'binary' })
+          const sheetName = workbook.SheetNames[0]
+          const worksheet = workbook.Sheets[sheetName]
+          const jsonData = XLSX.utils.sheet_to_json(worksheet)
+
+          console.log('📊 Datos del Excel:', jsonData)
+
+          const result: ProcessResult = {
+            total: jsonData.length,
+            successful: 0,
+            failed: 0,
+            errors: []
+          }
+
+          setProgress({ current: 0, total: jsonData.length })
+
+          // Procesar cada fila
+          for (let i = 0; i < jsonData.length; i++) {
+            const row: any = jsonData[i]
+
+            try {
+              // Mapear columnas del Excel
+              const bookingData = {
+                technician_id: row['ID Técnico'] || row['technician_id'] || row['Tecnico'],
+                title: row['Título'] || row['title'] || row['Titulo'] || 'Trabajo Técnico',
+                start_datetime: row['Fecha Inicio'] || row['start_datetime'] || row['FechaInicio'],
+                end_datetime: row['Fecha Fin'] || row['end_datetime'] || row['FechaFin'],
+                status: (row['Estado'] || row['status'] || 'pending') as 'pending' | 'confirmed' | 'done' | 'canceled',
+                notes: row['Notas'] || row['notes'] || undefined
+              }
+
+              console.log(`📝 [${i + 1}/${jsonData.length}] Procesando:`, bookingData)
+
+              // Validar datos requeridos
+              if (!bookingData.technician_id || !bookingData.start_datetime || !bookingData.end_datetime) {
+                throw new Error('Faltan datos requeridos: ID Técnico, Fecha Inicio o Fecha Fin')
+              }
+
+              // Crear programación
+              await createBooking(bookingData)
+              result.successful++
+
+              console.log(`✅ [${i + 1}/${jsonData.length}] Creada exitosamente`)
+            } catch (error) {
+              result.failed++
+              const errorMsg = `Fila ${i + 2}: ${error instanceof Error ? error.message : 'Error desconocido'}`
+              result.errors.push(errorMsg)
+              console.error(`❌ [${i + 1}/${jsonData.length}] Error:`, error)
+            }
+
+            setProgress({ current: i + 1, total: jsonData.length })
+          }
+
+          resolve(result)
+        } catch (error) {
+          resolve({
+            total: 0,
+            successful: 0,
+            failed: 0,
+            errors: [`Error leyendo Excel: ${error instanceof Error ? error.message : 'Error desconocido'}`]
+          })
+        }
+      }
+
+      reader.readAsBinaryString(file)
+    })
+  }
+
   const handleUpload = async () => {
     if (!file) {
       toast({
@@ -92,42 +178,57 @@ export function ExcelUploader({ onUploadSuccess }: ExcelUploaderProps) {
     }
 
     setUploading(true)
+    setProcessing(true)
 
     try {
       const supabase = createClient()
 
-      // Subir archivo a Supabase Storage
+      // 1. Subir archivo a Supabase Storage (respaldo)
       const fileName = `excel-uploads/${Date.now()}-${file.name}`
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('programaciones')
         .upload(fileName, file)
 
       if (uploadError) {
-        throw uploadError
+        console.warn('⚠️ No se pudo guardar en storage:', uploadError)
+        // Continuar de todos modos
       }
 
-      console.log('✅ Archivo subido:', uploadData)
+      // 2. Procesar Excel y crear programaciones
+      const result = await processExcelFile(file)
 
-      // Aquí puedes agregar lógica adicional para procesar el Excel
-      // Por ejemplo, leer el contenido y crear bookings automáticamente
+      // 3. Mostrar resultados
+      if (result.successful > 0) {
+        toast({
+          title: `✅ Importación completada`,
+          description: `${result.successful} de ${result.total} programaciones creadas exitosamente`,
+          duration: 6000
+        })
+      }
 
-      toast({
-        title: '✅ Archivo subido exitosamente',
-        description: `${file.name} se ha guardado correctamente`,
-      })
+      if (result.failed > 0) {
+        toast({
+          title: `⚠️ Algunas programaciones fallaron`,
+          description: `${result.failed} errores. Revisa la consola para más detalles.`,
+          variant: 'destructive',
+          duration: 8000
+        })
+        console.error('Errores durante importación:', result.errors)
+      }
 
       setFile(null)
       onUploadSuccess?.()
     } catch (error) {
-      console.error('❌ Error subiendo archivo:', error)
+      console.error('❌ Error general:', error)
       toast({
-        title: 'Error al subir archivo',
-        description: error instanceof Error ? error.message : 'No se pudo subir el archivo',
+        title: 'Error al procesar archivo',
+        description: error instanceof Error ? error.message : 'No se pudo procesar el archivo',
         variant: 'destructive'
       })
     } finally {
       setUploading(false)
+      setProcessing(false)
+      setProgress({ current: 0, total: 0 })
     }
   }
 
