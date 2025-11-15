@@ -174,6 +174,12 @@ async function getBookingNotificationRecipients(booking: Booking): Promise<strin
     }
   }
 
+  // 4. Usuario que creó la programación (si está disponible)
+  if (booking.created_by) {
+    recipients.add(booking.created_by)
+    console.log('🔔 [RECIPIENTS] Creador de booking agregado:', booking.created_by)
+  }
+
   const recipientArray = Array.from(recipients)
   console.log('🔔 [RECIPIENTS] Total destinatarios:', recipientArray.length, recipientArray)
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Plus, MoreHorizontal, Edit, User, Wrench, Clock, Calendar, Trash2 } from "lucide-react"
+import { Search, Plus, MoreHorizontal, Edit, User, Wrench, Clock, Calendar, Trash2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -239,10 +239,7 @@ export default function TecnicosPage() {
                             .toUpperCase()
                             .slice(0, 2)}
                         </div>
-                        <div>
-                          <div className="text-white font-medium">{tech.name}</div>
-                          <div className="text-slate-400 text-sm">ID: {tech.id.slice(0, 8)}...</div>
-                        </div>
+                        <div className="text-white font-medium">{tech.name}</div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -313,6 +310,21 @@ export default function TecnicosPage() {
 
           {loadingAvailability ? (
             <div className="text-center py-8 text-slate-400">Cargando disponibilidad...</div>
+          ) : weekAvailability.length === 0 || weekAvailability.every(day => day.availableSlots === 0 && day.slots.length === 0) ? (
+            <div className="text-center py-8">
+              <div className="bg-orange-950/30 border border-orange-800 rounded-lg p-6">
+                <AlertCircle className="h-12 w-12 text-orange-400 mx-auto mb-3" />
+                <h3 className="text-lg font-medium text-orange-300 mb-2">
+                  Sin Horarios Configurados
+                </h3>
+                <p className="text-sm text-orange-400/80 mb-4">
+                  Este técnico no tiene horarios de trabajo configurados. Se asignan automáticamente al crear un técnico nuevo (Lun-Vie 08:00-18:30).
+                </p>
+                <p className="text-xs text-slate-400">
+                  Si es un técnico existente, es posible que se haya creado antes de implementar la asignación automática de horarios.
+                </p>
+              </div>
+            </div>
           ) : (
             <div className="space-y-4">
               {weekAvailability.map((day, idx) => (
@@ -337,7 +349,7 @@ export default function TecnicosPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-slate-400 text-sm mt-2">Sin disponibilidad</p>
+                      <p className="text-slate-400 text-sm mt-2">Todos los slots están ocupados</p>
                     )}
                   </CardContent>
                 </Card>
