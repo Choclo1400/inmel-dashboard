@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { solicitudesService, type Solicitud } from "@/lib/services/solicitudesService"
-import { notificationsService } from "@/lib/services/notificationsService"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/use-toast"
 import DashboardLayout from "@/components/layout/dashboard-layout"
@@ -187,16 +186,7 @@ export default function AprobacionesPage() {
           duration: 8000, // Mostrar por más tiempo
         })
 
-        // Send notification to requester
-        if (selectedRequest.creado_por) {
-          await notificationsService.create({
-            user_id: selectedRequest.creado_por,
-            title: "Solicitud Aprobada",
-            message: `Tu solicitud ${selectedRequest.numero_solicitud} ha sido aprobada`,
-            type: "success",
-            solicitud_id: selectedRequest.id,
-          })
-        }
+        // 🔔 Notificación creada automáticamente por trigger notify_request_status_changes()
       } else {
         await solicitudesService.reject(selectedRequest.id, currentUserId, approvalComments)
         toast({
@@ -204,16 +194,7 @@ export default function AprobacionesPage() {
           description: `La solicitud ${selectedRequest.numero_solicitud} ha sido rechazada`,
         })
 
-        // Send notification to requester
-        if (selectedRequest.creado_por) {
-          await notificationsService.create({
-            user_id: selectedRequest.creado_por,
-            title: "Solicitud Rechazada",
-            message: `Tu solicitud ${selectedRequest.numero_solicitud} ha sido rechazada`,
-            type: "error",
-            solicitud_id: selectedRequest.id,
-          })
-        }
+        // 🔔 Notificación creada automáticamente por trigger notify_request_status_changes()
       }
 
       // Reset state - realtime subscription will handle the reload

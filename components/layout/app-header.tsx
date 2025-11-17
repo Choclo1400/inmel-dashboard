@@ -1,7 +1,7 @@
 "use client"
 
 import type { User } from "@supabase/supabase-js"
-import NotificationBell from "@/components/notifications/notification-bell"
+import NotificationBell from "@/components/notifications/NotificationBell"
 import RefreshSessionButton from "./refresh-session-button"
 
 interface AppHeaderProps {
@@ -26,7 +26,7 @@ export default function AppHeader({ title, subtitle, user }: AppHeaderProps) {
 
       <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
         <RefreshSessionButton />
-        <NotificationBell userId={user.id} />
+        <NotificationBell />
         <div className="text-right hidden sm:flex sm:flex-col sm:justify-center">
           <div className="text-sm leading-tight">{name}</div>
           <div className="text-xs text-slate-400 leading-tight mt-0.5">{role}</div>

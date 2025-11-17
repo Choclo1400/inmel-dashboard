@@ -5,7 +5,6 @@
  */
 
 import { createBrowserClient } from '@supabase/ssr'
-import { notificationsService } from './notificationsService'
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -114,77 +113,9 @@ export async function getWorkingHours(technicianId: string): Promise<WorkingHour
   return data || []
 }
 
-/**
- * Obtiene los IDs de usuarios que deben recibir notificaciones de un booking
- * - Técnico asignado (obtiene su user_id)
- * - Supervisores y Admins
- * - Creador de la solicitud (si existe solicitud_id)
- */
-async function getBookingNotificationRecipients(booking: Booking): Promise<string[]> {
-  const recipients = new Set<string>()
-
-  console.log('🔔 [RECIPIENTS] Obteniendo destinatarios para booking:', booking.id)
-
-  // 1. Técnico asignado (obtener su user_id)
-  try {
-    const { data: technicianData } = await supabase
-      .from('technicians')
-      .select('user_id')
-      .eq('id', booking.technician_id)
-      .single()
-
-    if (technicianData?.user_id) {
-      recipients.add(technicianData.user_id)
-      console.log('🔔 [RECIPIENTS] Técnico agregado:', technicianData.user_id)
-    }
-  } catch (error) {
-    console.error('❌ Error obteniendo user_id del técnico:', error)
-  }
-
-  // 2. Supervisores y Admins
-  try {
-    const { data: adminsAndSupervisors } = await supabase
-      .from('users')
-      .select('id')
-      .in('role', ['admin', 'supervisor'])
-
-    if (adminsAndSupervisors) {
-      adminsAndSupervisors.forEach((user) => recipients.add(user.id))
-      console.log('🔔 [RECIPIENTS] Admins/Supervisores agregados:', adminsAndSupervisors.length)
-    }
-  } catch (error) {
-    console.error('❌ Error obteniendo admins/supervisores:', error)
-  }
-
-  // 3. Creador de la solicitud (si existe solicitud_id)
-  if (booking.solicitud_id) {
-    try {
-      const { data: solicitud } = await supabase
-        .from('solicitudes')
-        .select('creado_por')
-        .eq('id', booking.solicitud_id)
-        .single()
-
-      if (solicitud?.creado_por) {
-        recipients.add(solicitud.creado_por)
-        console.log('🔔 [RECIPIENTS] Creador de solicitud agregado:', solicitud.creado_por)
-      }
-    } catch (error) {
-      console.error('❌ Error obteniendo creador de solicitud:', error)
-    }
-  }
-
-  // 4. Usuario que creó la programación (si está disponible)
-  if (booking.created_by) {
-    recipients.add(booking.created_by)
-    console.log('🔔 [RECIPIENTS] Creador de booking agregado:', booking.created_by)
-  }
-
-  const recipientArray = Array.from(recipients)
-  console.log('🔔 [RECIPIENTS] Total destinatarios:', recipientArray.length, recipientArray)
-
-  return recipientArray
-}
+// ============================================================================
+// WORKING HOURS (Horarios de Trabajo)
+// ============================================================================
 
 export async function getAllWorkingHours(): Promise<WorkingHours[]> {
   const { data, error } = await supabase
@@ -309,15 +240,8 @@ export async function createBooking(data: CreateBookingData): Promise<Booking> {
     throw new Error('Failed to create booking')
   }
 
-  // 🔔 Enviar notificaciones
-  try {
-    const recipients = await getBookingNotificationRecipients(booking)
-    await notificationsService.notifyBookingCreated(booking, recipients)
-    console.log('✅ [NOTIFICATIONS] Notificaciones de creación enviadas:', recipients.length)
-  } catch (error) {
-    console.error('❌ [NOTIFICATIONS] Error enviando notificaciones:', error)
-    // No fallar si falla la notificación, solo logear
-  }
+  // 🔔 Notificaciones ahora se envían automáticamente mediante triggers de base de datos
+  console.log('✅ [BOOKING] Booking creado. Notificaciones se enviarán automáticamente vía trigger.')
 
   return booking
 }
@@ -359,31 +283,14 @@ export async function updateBooking(id: string, data: UpdateBookingData): Promis
 
   console.log('✅ Booking actualizado exitosamente:', booking)
 
-  // 🔔 Enviar notificaciones
-  try {
-    const recipients = await getBookingNotificationRecipients(booking)
-    await notificationsService.notifyBookingUpdated(booking, recipients)
-    console.log('✅ [NOTIFICATIONS] Notificaciones de actualización enviadas:', recipients.length)
-  } catch (error) {
-    console.error('❌ [NOTIFICATIONS] Error enviando notificaciones:', error)
-    // No fallar si falla la notificación, solo logear
-  }
+  // 🔔 Notificaciones se envían automáticamente mediante triggers de base de datos
+  console.log('✅ [BOOKING] Booking actualizado. Notificaciones se enviarán automáticamente vía trigger.')
 
   return booking
 }
 
 export async function deleteBooking(id: string): Promise<void> {
   console.log('🗑️ Iniciando eliminación de booking:', id)
-
-  // Obtener booking antes de eliminarlo para las notificaciones
-  const { data: bookingToDelete } = await supabase
-    .from('bookings')
-    .select(`
-      *,
-      technician:technicians(*)
-    `)
-    .eq('id', id)
-    .single()
 
   const { data, error } = await supabase
     .from('bookings')
@@ -402,17 +309,8 @@ export async function deleteBooking(id: string): Promise<void> {
 
   console.log('✅ Booking eliminado exitosamente:', data)
 
-  // 🔔 Enviar notificaciones
-  if (bookingToDelete) {
-    try {
-      const recipients = await getBookingNotificationRecipients(bookingToDelete)
-      await notificationsService.notifyBookingDeleted(bookingToDelete, recipients)
-      console.log('✅ [NOTIFICATIONS] Notificaciones de eliminación enviadas:', recipients.length)
-    } catch (error) {
-      console.error('❌ [NOTIFICATIONS] Error enviando notificaciones:', error)
-      // No fallar si falla la notificación, solo logear
-    }
-  }
+  // 🔔 Notificaciones se envían automáticamente mediante triggers de base de datos
+  console.log('✅ [BOOKING] Booking eliminado. Notificaciones se enviarán automáticamente vía trigger.')
 }
 
 // ============================================================================
@@ -755,16 +653,9 @@ export async function updateBookingStatus(
     throw new Error('Failed to update booking status')
   }
 
-  // 🔔 Enviar notificaciones (solo si el estado cambió realmente)
+  // 🔔 Notificaciones se envían automáticamente mediante triggers de base de datos
   if (oldStatus !== status) {
-    try {
-      const recipients = await getBookingNotificationRecipients(booking)
-      await notificationsService.notifyBookingStatusChanged(booking, oldStatus, status, recipients)
-      console.log('✅ [NOTIFICATIONS] Notificaciones de cambio de estado enviadas:', recipients.length)
-    } catch (error) {
-      console.error('❌ [NOTIFICATIONS] Error enviando notificaciones:', error)
-      // No fallar si falla la notificación, solo logear
-    }
+    console.log('✅ [BOOKING] Estado cambiado. Notificaciones se enviarán automáticamente vía trigger.')
   }
 
   return booking

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Solicitud, solicitudesService } from "@/lib/services/solicitudesService"
 import { getTechnicians, type Technician } from "@/lib/services/scheduling-lite"
-import { notificationsService } from "@/lib/services/notificationsService"
 import {
   Dialog,
   DialogContent,
@@ -91,30 +90,16 @@ export function AssignTechnicianDialog({
       // Asignar técnico (esto también cambia el estado a "Aprobada")
       await solicitudesService.assignTechnician(solicitud.id, selectedTechnicianId)
 
-      // Obtener info del técnico para la notificación
+      // Obtener info del técnico para el mensaje toast
       const technician = technicians.find((t) => t.id === selectedTechnicianId)
 
-      // Notificar al técnico asignado
-      if (technician?.user_id) {
-        await notificationsService.create({
-          usuario_id: technician.user_id,
-          titulo: "Nueva Solicitud Asignada",
-          mensaje: `Se le ha asignado la solicitud ${solicitud.numero_solicitud} - ${solicitud.direccion}`,
-          tipo: "info",
-          solicitud_id: solicitud.id,
-        })
-      }
+      // 🔔 Notificación al creador creada automáticamente por trigger notify_request_status_changes()
+      // cuando el estado cambia a "Aprobada"
 
-      // Notificar al creador si es diferente
-      if (solicitud.creado_por !== technician?.user_id) {
-        await notificationsService.create({
-          usuario_id: solicitud.creado_por,
-          titulo: "Técnico Asignado",
-          mensaje: `Se ha asignado un técnico a su solicitud ${solicitud.numero_solicitud}: ${technician?.name || "Técnico"}`,
-          tipo: "success",
-          solicitud_id: solicitud.id,
-        })
-      }
+      // ⚠️ NOTA: No existe trigger para notificar al técnico asignado.
+      // Si se requiere, agregar trigger en la migración SQL:
+      // CREATE TRIGGER notify_technician_assignment AFTER UPDATE ON solicitudes
+      // FOR EACH ROW WHEN (OLD.tecnico_asignado_id IS DISTINCT FROM NEW.tecnico_asignado_id)
 
       toast({
         title: "Éxito",

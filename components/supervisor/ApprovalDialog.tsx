@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { Solicitud, solicitudesService } from "@/lib/services/solicitudesService"
-import { notificationsService } from "@/lib/services/notificationsService"
 import {
   Dialog,
   DialogContent,
@@ -117,24 +116,8 @@ export function ApprovalDialog({
           break
       }
 
-      // Crear notificación para el creador
-      await notificationsService.create({
-        usuario_id: solicitud.creado_por,
-        titulo:
-          action === "aprobar"
-            ? "Solicitud Aprobada"
-            : action === "rechazar"
-              ? "Solicitud Rechazada"
-              : "Información Requerida",
-        mensaje:
-          action === "aprobar"
-            ? `Su solicitud ${solicitud.numero_solicitud} ha sido aprobada.${comentarios ? ` Comentarios: ${comentarios}` : ""}`
-            : action === "rechazar"
-              ? `Su solicitud ${solicitud.numero_solicitud} ha sido rechazada. Razón: ${comentarios}`
-              : `Se requiere información adicional para la solicitud ${solicitud.numero_solicitud}. Detalles: ${comentarios}`,
-        tipo: action === "aprobar" ? "success" : action === "rechazar" ? "error" : "warning",
-        solicitud_id: solicitud.id,
-      })
+      // 🔔 Notificación creada automáticamente por trigger notify_request_status_changes()
+      // cuando el estado cambia a "Aprobada" o "Rechazada"
 
       toast({
         title: "Éxito",

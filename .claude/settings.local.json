@@ -4,7 +4,10 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(npm run dev:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(nul)",
+      "Bash(if exist \"C:\\Users\\ferna\\Desktop\\inmel-dashboard\\components\\notifications\" rmdir \"C:\\Users\\ferna\\Desktop\\inmel-dashboard\\components\\notifications\")",
+      "Bash(if not exist \"C:\\Users\\ferna\\Desktop\\inmel-dashboard\\types\" mkdir \"C:\\Users\\ferna\\Desktop\\inmel-dashboard\\types\")"
     ],
     "deny": [],
     "ask": []

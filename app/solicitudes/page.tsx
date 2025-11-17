@@ -15,7 +15,6 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import DashboardLayout from "@/components/layout/dashboard-layout"
 import { solicitudesService, type Solicitud } from "@/lib/services/solicitudesService"
-import { notificationsService } from "@/lib/services/notificationsService"
 import { useToast } from "@/components/ui/use-toast"
 import { createClient } from "@/lib/supabase/client"
 import SolicitudFormDialog from "@/components/solicitudes/solicitud-form-dialog"
@@ -282,34 +281,14 @@ function SolicitudesPageClient() {
           title: "Solicitud aprobada",
           description: `La solicitud ${selectedSolicitud.numero_solicitud} ha sido aprobada`,
         })
-
-        // Enviar notificación al creador
-        if (selectedSolicitud.creado_por) {
-          await notificationsService.create({
-            user_id: selectedSolicitud.creado_por,
-            title: "Solicitud Aprobada",
-            message: `Tu solicitud ${selectedSolicitud.numero_solicitud} ha sido aprobada`,
-            type: "success",
-            solicitud_id: selectedSolicitud.id,
-          })
-        }
+        // 🔔 Notificación creada automáticamente por trigger notify_request_status_changes()
       } else {
         await solicitudesService.reject(selectedSolicitud.id, userId, approvalComments)
         toast({
           title: "Solicitud rechazada",
           description: `La solicitud ${selectedSolicitud.numero_solicitud} ha sido rechazada`,
         })
-
-        // Enviar notificación al creador
-        if (selectedSolicitud.creado_por) {
-          await notificationsService.create({
-            user_id: selectedSolicitud.creado_por,
-            title: "Solicitud Rechazada",
-            message: `Tu solicitud ${selectedSolicitud.numero_solicitud} ha sido rechazada`,
-            type: "error",
-            solicitud_id: selectedSolicitud.id,
-          })
-        }
+        // 🔔 Notificación creada automáticamente por trigger notify_request_status_changes()
       }
 
       // Reset y recargar

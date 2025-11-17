@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import DashboardLayout from "@/components/layout/dashboard-layout"
-import { notificationsService, type Notification } from "@/lib/services/notificationsService"
+import { notificationService, type Notification } from "@/services/notificationService"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDistanceToNow } from "date-fns"
@@ -61,7 +61,7 @@ function NotificationsPageContent() {
         }
 
         setUserId(user.id)
-        const data = await notificationsService.getByUser(user.id, false)
+        const data = await notificationService.getByUser(user.id, false)
         setNotifications(data)
       } catch (error) {
         console.error("Error loading notifications:", error)
@@ -82,7 +82,7 @@ function NotificationsPageContent() {
   useEffect(() => {
     if (!userId) return
 
-    const unsubscribe = notificationsService.subscribeToUserNotifications(
+    const unsubscribe = notificationService.subscribeToUserNotifications(
       userId,
       (notification) => {
         setNotifications((prev) => [notification, ...prev])
@@ -103,7 +103,7 @@ function NotificationsPageContent() {
 
   const markAsRead = async (id: string) => {
     try {
-      await notificationsService.markAsRead(id)
+      await notificationService.markAsRead(id)
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       )
@@ -121,7 +121,7 @@ function NotificationsPageContent() {
     if (!userId) return
 
     try {
-      await notificationsService.markAllAsRead(userId)
+      await notificationService.markAllAsRead(userId)
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
       toast({
         title: "Éxito",

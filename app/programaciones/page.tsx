@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Can } from "@/components/rbac/Can"
 import { CalendarioTecnico } from "@/components/calendario/calendario-tecnico"
-import { SolicitudesSinProgramar } from "@/components/programaciones/solicitudes-sin-programar"
+import UnprogrammedRequests from "@/components/solicitudes/UnprogrammedRequests"
 import { ExcelUploader } from "@/components/programaciones/excel-uploader"
 import { getTechnicians, getBookings } from "@/lib/services/scheduling-lite"
 import { solicitudesService } from "@/lib/services/solicitudesService"
@@ -464,10 +464,7 @@ export default function ProgramacionesPage() {
 
         {/* Tab: Solicitudes Sin Programar */}
         <TabsContent value="sin-programar">
-          <SolicitudesSinProgramar
-            solicitudes={solicitudesSinProgramar}
-            onProgramacionCreada={loadData}
-          />
+          <UnprogrammedRequests />
         </TabsContent>
       </Tabs>
 
