@@ -43,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { DateTimePicker } from '@/components/ui/date-time-picker'
 
 interface BookingFormData {
   technician_id: string
@@ -84,6 +85,10 @@ export default function SimpleCalendar() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
   const [formData, setFormData] = useState<BookingFormData>(DEFAULT_FORM)
+
+  // Date picker states
+  const [startDateTime, setStartDateTime] = useState<Date | undefined>()
+  const [endDateTime, setEndDateTime] = useState<Date | undefined>()
 
   // ============================================================================
   // CARGAR DATOS
@@ -198,11 +203,28 @@ export default function SimpleCalendar() {
   // HANDLERS
   // ============================================================================
 
+  const handleStartDateTimeChange = (d: Date | undefined) => {
+    setStartDateTime(d)
+    if (d) {
+      setFormData(prev => ({ ...prev, start_time: d.toISOString() }))
+    }
+  }
+
+  const handleEndDateTimeChange = (d: Date | undefined) => {
+    setEndDateTime(d)
+    if (d) {
+      setFormData(prev => ({ ...prev, end_time: d.toISOString() }))
+    }
+  }
+
   const handleSlotClick = (date: Date, technicianId: string, hour: number, minute: number) => {
     const existing = getBookingForSlot(date, technicianId, hour, minute)
-    
+
     if (existing) {
       // Editar reserva existente
+      const startTime = new Date(existing.start_time)
+      const endTime = new Date(existing.end_time)
+
       setFormData({
         technician_id: existing.technician_id,
         client_name: existing.client_name,
@@ -213,6 +235,8 @@ export default function SimpleCalendar() {
         start_time: existing.start_time,
         end_time: existing.end_time
       })
+      setStartDateTime(startTime)
+      setEndDateTime(endTime)
       setEditingBooking(existing)
     } else {
       // Nueva reserva
@@ -220,16 +244,18 @@ export default function SimpleCalendar() {
       startTime.setHours(hour, minute, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(hour, minute + 30, 0, 0) // 30 min por defecto
-      
+
       setFormData({
         ...DEFAULT_FORM,
         technician_id: technicianId,
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString()
       })
+      setStartDateTime(startTime)
+      setEndDateTime(endTime)
       setEditingBooking(null)
     }
-    
+
     setDialogOpen(true)
   }
 
@@ -438,23 +464,19 @@ export default function SimpleCalendar() {
                   
                   <div>
                     <Label htmlFor="start_time">Start Time *</Label>
-                    <Input
-                      id="start_time"
-                      type="datetime-local"
-                      value={formData.start_time.slice(0, 16)}
-                      onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value + ':00.000Z' }))}
-                      required
+                    <DateTimePicker
+                      date={startDateTime}
+                      onDateChange={handleStartDateTimeChange}
+                      placeholder="Seleccionar hora de inicio"
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="end_time">End Time *</Label>
-                    <Input
-                      id="end_time"
-                      type="datetime-local"
-                      value={formData.end_time.slice(0, 16)}
-                      onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value + ':00.000Z' }))}
-                      required
+                    <DateTimePicker
+                      date={endDateTime}
+                      onDateChange={handleEndDateTimeChange}
+                      placeholder="Seleccionar hora de fin"
                     />
                   </div>
                   

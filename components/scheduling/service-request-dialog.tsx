@@ -13,6 +13,7 @@ import DailyAvailabilityPicker from './daily-availability-picker'
 import { schedulingService } from '@/lib/services/scheduling'
 import { createClient } from '@/lib/supabase/client'
 import type { Client } from '@/lib/types'
+import { DatePicker } from '@/components/ui/date-picker'
 
 interface ServiceRequestDialogProps {
   open: boolean
@@ -55,6 +56,9 @@ export default function ServiceRequestDialog({
     sla_hours: 24
   })
 
+  // Date picker state
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(new Date())
+
   useEffect(() => {
     if (client) {
       setFormData(prev => ({ ...prev, client_id: client.id }))
@@ -86,6 +90,11 @@ export default function ServiceRequestDialog({
       return
     }
     setStep(2)
+  }
+
+  const handleDateChange = (d: Date | undefined) => {
+    setScheduledDate(d)
+    setFormData(prev => ({ ...prev, scheduled_date: d ? d.toISOString().split('T')[0] : '' }))
   }
 
   const handleSlotSelect = (start: Date, end: Date) => {
@@ -303,12 +312,10 @@ export default function ServiceRequestDialog({
                 <CardContent>
                   <div className="mb-4">
                     <Label className="text-slate-300">Fecha</Label>
-                    <Input
-                      type="date"
-                      value={formData.scheduled_date}
-                      onChange={(e) => setFormData(prev => ({ ...prev, scheduled_date: e.target.value }))}
-                      className="bg-slate-600 border-slate-500 text-white"
-                      min={new Date().toISOString().split('T')[0]}
+                    <DatePicker
+                      date={scheduledDate}
+                      onDateChange={handleDateChange}
+                      placeholder="Seleccionar fecha"
                     />
                   </div>
 

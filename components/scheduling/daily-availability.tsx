@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Calendar, Clock, User, Plus } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import { DatePicker } from '@/components/ui/date-picker'
 
 import {
   getTechnicians,
@@ -67,7 +68,10 @@ export default function DailyAvailabilityPicker() {
   )
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([])
   const [loading, setLoading] = useState(false)
-  
+
+  // Date picker state
+  const [dateValue, setDateValue] = useState<Date | undefined>(new Date())
+
   // Quick booking state
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
@@ -160,6 +164,11 @@ export default function DailyAvailabilityPicker() {
   // ============================================================================
   // HANDLERS
   // ============================================================================
+
+  const handleDateChange = (d: Date | undefined) => {
+    setDateValue(d)
+    setSelectedDate(d ? d.toISOString().split('T')[0] : '')
+  }
 
   const handleSlotClick = (slot: TimeSlot) => {
     if (!slot.available) {
@@ -260,12 +269,10 @@ export default function DailyAvailabilityPicker() {
             {/* Date Selector */}
             <div>
               <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
+              <DatePicker
+                date={dateValue}
+                onDateChange={handleDateChange}
+                placeholder="Seleccionar fecha"
               />
             </div>
 

@@ -10,6 +10,7 @@ import { DatePickerWithRange } from "@/components/ui/date-range-picker"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import DashboardLayout from "@/components/layout/dashboard-layout"
 import {
   BarChart,
   Bar,
@@ -120,74 +121,68 @@ export default function ReportesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-900">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
-          <p className="text-slate-400">Cargando datos del reporte...</p>
+      <DashboardLayout title="Reportes e Indicadores" subtitle="Cargando datos del reporte...">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
+            <p className="text-slate-400">Cargando datos del reporte...</p>
+          </div>
         </div>
-      </div>
+      </DashboardLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700 px-8 py-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Reportes e Indicadores</h1>
-            <p className="text-slate-400 text-sm">Análisis de rendimiento y KPIs del sistema</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-slate-400" />
-              <DatePickerWithRange date={dateRange} onDateChange={setDateRange} />
-            </div>
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger className="w-32 bg-slate-700 border-slate-600 text-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-700 border-slate-600">
-                <SelectItem value="week">Semanal</SelectItem>
-                <SelectItem value="month">Mensual</SelectItem>
-                <SelectItem value="quarter">Trimestral</SelectItem>
-                <SelectItem value="year">Anual</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => handleExport("excel")}
-                variant="outline"
-                className="border-slate-600 text-slate-300 hover:text-white bg-transparent"
-                disabled={exporting}
-              >
-                {exporting ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Download className="w-4 h-4 mr-2" />
-                )}
-                Excel
-              </Button>
-              <Button
-                onClick={() => handleExport("pdf")}
-                variant="outline"
-                className="border-slate-600 text-slate-300 hover:text-white bg-transparent"
-                disabled={exporting}
-              >
-                {exporting ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Download className="w-4 h-4 mr-2" />
-                )}
-                PDF
-              </Button>
-            </div>
-          </div>
+    <DashboardLayout title="Reportes e Indicadores" subtitle="Análisis de rendimiento y KPIs del sistema">
+      {/* Action Buttons */}
+      <div className="flex items-center justify-end gap-4 mb-6">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-slate-400" />
+          <DatePickerWithRange date={dateRange} onDateChange={setDateRange} />
+        </div>
+        <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+          <SelectTrigger className="w-32 bg-slate-700 border-slate-600 text-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-slate-700 border-slate-600">
+            <SelectItem value="week">Semanal</SelectItem>
+            <SelectItem value="month">Mensual</SelectItem>
+            <SelectItem value="quarter">Trimestral</SelectItem>
+            <SelectItem value="year">Anual</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => handleExport("excel")}
+            variant="outline"
+            className="border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700"
+            disabled={exporting}
+          >
+            {exporting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            Excel
+          </Button>
+          <Button
+            onClick={() => handleExport("pdf")}
+            variant="outline"
+            className="border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700"
+            disabled={exporting}
+          >
+            {exporting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            PDF
+          </Button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-8">
+      <div>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-slate-800 border-slate-700">
             <TabsTrigger value="overview" className="data-[state=active]:bg-blue-600">
@@ -577,6 +572,6 @@ export default function ReportesPage() {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </DashboardLayout>
   )
 }

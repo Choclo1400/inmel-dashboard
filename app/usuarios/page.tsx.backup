@@ -191,16 +191,6 @@ export default function UsuariosPage() {
                 />
               </div>
             </div>
-            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as "all" | "active" | "inactive")}>
-              <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-700 border-slate-600">
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="active">Activos</SelectItem>
-                <SelectItem value="inactive">Inactivos</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
               <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white">
                 <SelectValue placeholder="Rol" />
@@ -233,7 +223,6 @@ export default function UsuariosPage() {
                   <TableHead className="text-slate-300">Email</TableHead>
                   <TableHead className="text-slate-300">Teléfono</TableHead>
                   <TableHead className="text-slate-300">Rol</TableHead>
-                  <TableHead className="text-slate-300">Estado</TableHead>
                   <TableHead className="text-slate-300">Fecha Registro</TableHead>
                   <TableHead className="text-slate-300">Acciones</TableHead>
                 </TableRow>
@@ -254,19 +243,6 @@ export default function UsuariosPage() {
                     <TableCell>
                       <UserRoleBadge role={user.rol} />
                     </TableCell>
-                    <TableCell>
-                      {user.activo ? (
-                        <Badge className="bg-green-600 text-white hover:bg-green-600">
-                          <UserCheck className="w-3 h-3 mr-1" />
-                          Activo
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-orange-600 text-white hover:bg-orange-600">
-                          <UserX className="w-3 h-3 mr-1" />
-                          Inactivo
-                        </Badge>
-                      )}
-                    </TableCell>
                     <TableCell className="text-slate-300">
                       {user?.created_at ? new Date(user.created_at).toLocaleDateString("es-CL") : "-"}
                     </TableCell>
@@ -285,35 +261,12 @@ export default function UsuariosPage() {
                             <Edit className="w-4 h-4 mr-2" />
                             Editar
                           </DropdownMenuItem>
-
-                          <DropdownMenuSeparator className="bg-slate-600" />
-
-                          {user.activo ? (
-                            <DropdownMenuItem
-                              className="text-orange-400 hover:text-orange-300 hover:bg-slate-600"
-                              onClick={() => handleAction(user, "deactivate")}
-                            >
-                              <UserX className="w-4 h-4 mr-2" />
-                              Desactivar
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              className="text-green-400 hover:text-green-300 hover:bg-slate-600"
-                              onClick={() => handleAction(user, "reactivate")}
-                            >
-                              <RefreshCw className="w-4 h-4 mr-2" />
-                              Reactivar
-                            </DropdownMenuItem>
-                          )}
-
-                          <DropdownMenuSeparator className="bg-slate-600" />
-
                           <DropdownMenuItem
                             className="text-red-400 hover:text-red-300 hover:bg-slate-600"
-                            onClick={() => handleAction(user, "delete_permanent")}
+                            onClick={() => handleDelete(user)}
                           >
                             <Trash2 className="w-4 h-4 mr-2" />
-                            Eliminar Permanentemente
+                            Desactivar
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -336,11 +289,10 @@ export default function UsuariosPage() {
         onSuccess={handleSuccess}
       />
 
-      <UserActionDialog
-        open={showActionDialog}
-        onOpenChange={setShowActionDialog}
+      <UserDeleteDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
         user={selectedUser}
-        action={currentAction}
         onSuccess={handleSuccess}
       />
     </DashboardLayout>

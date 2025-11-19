@@ -5,6 +5,7 @@ export type UserRole = "Empleado" | "Gestor" | "Supervisor" | "Administrador"
 export interface UserFilter {
   rol?: UserRole
   search?: string
+  activo?: boolean // true = solo activos, false = solo inactivos, undefined = todos
 }
 
 export interface User {
@@ -14,6 +15,7 @@ export interface User {
   apellido: string
   rol: UserRole
   telefono?: string
+  activo: boolean
   created_at: string
   updated_at: string
 }
@@ -56,6 +58,11 @@ export class UsuariosService {
       query = query.or(
         `nombre.ilike.%${filters.search}%,apellido.ilike.%${filters.search}%,email.ilike.%${filters.search}%`
       )
+    }
+
+    // Filter by active status
+    if (filters?.activo !== undefined) {
+      query = query.eq("activo", filters.activo)
     }
 
     const { data, error } = await query
@@ -176,16 +183,61 @@ export class UsuariosService {
   }
 
   /**
-   * Elimina un usuario (elimina del auth y profile en cascada)
+   * Desactiva un usuario (soft delete)
    */
-  async delete(id: string): Promise<void> {
+  async deactivate(id: string): Promise<void> {
+    const { error } = await this.supabase
+      .from("profiles")
+      .update({
+        activo: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+
+    if (error) {
+      console.error("Error deactivating user:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Reactiva un usuario desactivado
+   */
+  async reactivate(id: string): Promise<void> {
+    const { error } = await this.supabase
+      .from("profiles")
+      .update({
+        activo: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+
+    if (error) {
+      console.error("Error reactivating user:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Elimina un usuario permanentemente (hard delete)
+   * ⚠️ ADVERTENCIA: Esta acción NO se puede deshacer
+   */
+  async deletePermanently(id: string): Promise<void> {
     // Llamar al RPC de Supabase para eliminar del auth
     const { error } = await this.supabase.rpc("delete_user", { user_id: id })
 
     if (error) {
-      console.error("Error deleting user:", error)
+      console.error("Error deleting user permanently:", error)
       throw error
     }
+  }
+
+  /**
+   * Alias para compatibilidad (soft delete por defecto)
+   * Elimina un usuario (elimina del auth y profile en cascada)
+   */
+  async delete(id: string): Promise<void> {
+    return this.deactivate(id)
   }
 
   /**
@@ -206,7 +258,7 @@ export class UsuariosService {
    * Obtiene estadísticas de usuarios
    */
   async getStats() {
-    const { data, error } = await this.supabase.from("profiles").select("rol")
+    const { data, error } = await this.supabase.from("profiles").select("rol, activo")
 
     if (error) {
       console.error("Error fetching user stats:", error)
@@ -215,6 +267,8 @@ export class UsuariosService {
 
     const stats = {
       total: data.length,
+      activos: data.filter((u: any) => u.activo === true).length,
+      inactivos: data.filter((u: any) => u.activo === false).length,
       administradores: data.filter((u: any) => u.rol === "Administrador").length,
       supervisores: data.filter((u: any) => u.rol === "Supervisor").length,
       gestores: data.filter((u: any) => u.rol === "Gestor").length,

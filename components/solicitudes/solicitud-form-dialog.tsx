@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { AlertTriangle, CheckCircle, Clock } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { solicitudesService, type Solicitud, type CreateSolicitudData } from "@/lib/services/solicitudesService"
@@ -45,6 +46,7 @@ export default function SolicitudFormDialog({
     fecha_estimada: "",
     creado_por: userId,
   })
+  const [fechaEstimadaDate, setFechaEstimadaDate] = useState<Date | undefined>()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dateValidation, setDateValidation] = useState<{ valid: boolean; errors: string[] }>({ valid: true, errors: [] })
@@ -52,13 +54,10 @@ export default function SolicitudFormDialog({
 
   // Validar fecha cuando cambia
   useEffect(() => {
-    if (formData.fecha_estimada) {
-      // Crear fecha desde el input datetime-local
-      const date = new Date(formData.fecha_estimada)
-
+    if (fechaEstimadaDate) {
       // Validar solo si la fecha es válida
-      if (!isNaN(date.getTime())) {
-        const validation = validateSolicitudDate(date)
+      if (!isNaN(fechaEstimadaDate.getTime())) {
+        const validation = validateSolicitudDate(fechaEstimadaDate)
         setDateValidation(validation)
       } else {
         setDateValidation({ valid: false, errors: ["Fecha inválida"] })
@@ -67,7 +66,7 @@ export default function SolicitudFormDialog({
       // Si no hay fecha, la validación es válida (campo opcional)
       setDateValidation({ valid: true, errors: [] })
     }
-  }, [formData.fecha_estimada])
+  }, [fechaEstimadaDate])
 
   useEffect(() => {
     if (solicitud) {
@@ -78,11 +77,11 @@ export default function SolicitudFormDialog({
         tipo_trabajo: solicitud.tipo_trabajo,
         prioridad: solicitud.prioridad,
         horas_estimadas: solicitud.horas_estimadas,
-        fecha_estimada: solicitud.fecha_estimada
-          ? new Date(solicitud.fecha_estimada).toISOString().slice(0, 16)
-          : "",
+        fecha_estimada: solicitud.fecha_estimada || "",
         creado_por: userId,
       })
+      // Set date picker state
+      setFechaEstimadaDate(solicitud.fecha_estimada ? new Date(solicitud.fecha_estimada) : undefined)
     } else {
       // Generate auto numero_solicitud
       const timestamp = Date.now()
@@ -97,6 +96,7 @@ export default function SolicitudFormDialog({
         fecha_estimada: "",
         creado_por: userId,
       })
+      setFechaEstimadaDate(undefined)
     }
   }, [solicitud, open, userId])
 
@@ -112,8 +112,8 @@ export default function SolicitudFormDialog({
       }
 
       // Convertir fecha_estimada a ISO string si existe
-      const fechaEstimadaISO = formData.fecha_estimada 
-        ? new Date(formData.fecha_estimada).toISOString()
+      const fechaEstimadaISO = fechaEstimadaDate
+        ? fechaEstimadaDate.toISOString()
         : undefined
 
       // Debug log
@@ -248,7 +248,7 @@ export default function SolicitudFormDialog({
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="prioridad">Prioridad</Label>
               <Select
@@ -282,28 +282,25 @@ export default function SolicitudFormDialog({
                 placeholder="Ej: 4"
               />
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="fecha_estimada">Fecha y Hora Estimada (Opcional)</Label>
-              <Input
-                id="fecha_estimada"
-                type="datetime-local"
-                value={formData.fecha_estimada}
-                onChange={(e) => setFormData({ ...formData, fecha_estimada: e.target.value })}
-                className="bg-slate-700 border-slate-600 text-white"
-                min={new Date().toISOString().slice(0, 16)}
-              />
-              <p className="text-xs text-slate-400">
-                📅 Horario laboral: <span className="font-medium text-slate-300">Lunes a Viernes, 8:00 AM - 5:59 PM</span>
-              </p>
-              <p className="text-xs text-slate-500">
-                Ejemplo: Para mañana a las 10 AM, selecciona la fecha de mañana y hora 10:00
-              </p>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="fecha_estimada">Fecha y Hora Estimada (Opcional)</Label>
+            <DateTimePicker
+              date={fechaEstimadaDate}
+              onDateChange={setFechaEstimadaDate}
+              placeholder="Seleccionar fecha y hora"
+            />
+            <p className="text-xs text-slate-400 flex items-center gap-1">
+              📅 <span className="font-medium text-slate-300">Horario: Lunes a Viernes, 8:00 - 18:30</span>
+            </p>
+            <p className="text-xs text-slate-500">
+              💡 Las solicitudes fuera de horario laboral mostrarán una advertencia
+            </p>
           </div>
 
           {/* Validación de fecha */}
-          {formData.fecha_estimada && !dateValidation.valid && (
+          {fechaEstimadaDate && !dateValidation.valid && (
             <Alert className="bg-amber-900/20 border-amber-700">
               <AlertTriangle className="h-4 w-4 text-amber-400" />
               <AlertDescription className="text-amber-300">
@@ -320,7 +317,7 @@ export default function SolicitudFormDialog({
             </Alert>
           )}
 
-          {formData.fecha_estimada && dateValidation.valid && (
+          {fechaEstimadaDate && dateValidation.valid && (
             <Alert className="bg-green-900/20 border-green-700">
               <CheckCircle className="h-4 w-4 text-green-400" />
               <AlertDescription className="text-green-300">

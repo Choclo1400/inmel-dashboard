@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import Link from "next/link"
 import { serviceRequestService, clientService, userService } from "@/lib/database"
 import { Client, User as AppUser, ServiceRequest, ServiceRequestPriority } from "@/lib/types"
+import { DatePicker } from "@/components/ui/date-picker"
 
 export default function EditarSolicitudPage() {
   const router = useRouter()
@@ -23,6 +24,9 @@ export default function EditarSolicitudPage() {
   const [technicians, setTechnicians] = useState<AppUser[]>([])
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState<Partial<ServiceRequest>>({})
+
+  // Date picker state
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>()
 
   useEffect(() => {
     const fetchData = async () => {
@@ -36,10 +40,15 @@ export default function EditarSolicitudPage() {
         setClients(clientsData)
         setTechnicians(techniciansData)
         if (requestData) {
+          const scheduledDateStr = requestData.scheduled_date ? new Date(requestData.scheduled_date).toISOString().split("T")[0] : ""
           setFormData({
             ...requestData,
-            scheduled_date: requestData.scheduled_date ? new Date(requestData.scheduled_date).toISOString().split("T")[0] : "",
+            scheduled_date: scheduledDateStr,
           })
+          // Set date picker state
+          if (requestData.scheduled_date) {
+            setScheduledDate(new Date(requestData.scheduled_date))
+          }
         }
       } catch (error) {
         console.error("Error fetching data:", error)
@@ -52,6 +61,14 @@ export default function EditarSolicitudPage() {
 
   const handleInputChange = (field: string, value: string | number | null) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleDateChange = (date: Date | undefined) => {
+    setScheduledDate(date)
+    setFormData((prev) => ({
+      ...prev,
+      scheduled_date: date ? date.toISOString().split("T")[0] : ""
+    }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -192,16 +209,11 @@ export default function EditarSolicitudPage() {
                   <Label htmlFor="scheduled_date" className="text-slate-300">
                     Fecha Estimada
                   </Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <Input
-                      id="scheduled_date"
-                      type="date"
-                      value={formData.scheduled_date || ""}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange("scheduled_date", e.target.value)}
-                      className="pl-10 bg-slate-700 border-slate-600 text-white"
-                    />
-                  </div>
+                  <DatePicker
+                    date={scheduledDate}
+                    onDateChange={handleDateChange}
+                    placeholder="Seleccionar fecha estimada"
+                  />
                 </div>
               </div>
               <div className="space-y-2">

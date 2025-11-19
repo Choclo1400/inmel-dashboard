@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { DateTimePicker } from '@/components/ui/date-time-picker'
 import {
   Select,
   SelectContent,
@@ -70,23 +71,6 @@ interface BookingFormData {
   status: 'pending' | 'confirmed' | 'done' | 'canceled'
 }
 
-// Funciones helper para manejo de datetime-local sin bug de zona horaria
-const toDatetimeLocal = (isoString: string): string => {
-  if (!isoString) return ''
-  const date = new Date(isoString)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${year}-${month}-${day}T${hours}:${minutes}`
-}
-
-const fromDatetimeLocal = (datetimeLocal: string): string => {
-  if (!datetimeLocal) return ''
-  return new Date(datetimeLocal).toISOString()
-}
-
 export function CalendarioTecnico({
   programaciones = [],
   technicians = [],
@@ -114,6 +98,10 @@ export function CalendarioTecnico({
     status: 'pending'
   })
 
+  // Estado para los date pickers
+  const [startDate, setStartDate] = useState<Date | undefined>()
+  const [endDate, setEndDate] = useState<Date | undefined>()
+
   // Función para resetear el formulario y estados
   const resetForm = () => {
     console.log('🔄 Reseteando formulario')
@@ -125,10 +113,25 @@ export function CalendarioTecnico({
       end_time: '',
       status: 'pending'
     })
+    setStartDate(undefined)
+    setEndDate(undefined)
     setIsAvailable(null)
     setHorasInvalidas(false)
     setEditingEvent(null)
     setValidating(false)
+  }
+
+  // Handlers para los date pickers
+  const handleStartDateChange = (date: Date | undefined) => {
+    setStartDate(date)
+    const isoString = date ? date.toISOString() : ''
+    handleFieldChange('start_time', isoString)
+  }
+
+  const handleEndDateChange = (date: Date | undefined) => {
+    setEndDate(date)
+    const isoString = date ? date.toISOString() : ''
+    handleFieldChange('end_time', isoString)
   }
 
   // Validación automática de disponibilidad
@@ -262,6 +265,10 @@ export function CalendarioTecnico({
       status: 'pending'
     })
 
+    // Set date picker states
+    setStartDate(slotInfo.start)
+    setEndDate(slotInfo.end)
+
     // Abrir dialog
     setDialogOpen(true)
 
@@ -293,6 +300,10 @@ export function CalendarioTecnico({
       end_time: endTime,
       status: event.status || 'pending'
     })
+
+    // Set date picker states
+    setStartDate(event.start)
+    setEndDate(event.end)
 
     // Resetear validación
     setIsAvailable(null)
@@ -338,6 +349,11 @@ export function CalendarioTecnico({
       end_time: endTime,
       status: 'pending'
     })
+
+    // Set date picker states
+    setStartDate(tomorrow)
+    setEndDate(endTomorrow)
+
     setDialogOpen(true)
 
     if (technicianId) {
@@ -680,31 +696,19 @@ export function CalendarioTecnico({
 
             <div>
               <Label htmlFor="start_time">Hora de Inicio *</Label>
-              <Input
-                id="start_time"
-                type="datetime-local"
-                value={toDatetimeLocal(formData.start_time)}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleFieldChange('start_time', fromDatetimeLocal(e.target.value))
-                  }
-                }}
-                required
+              <DateTimePicker
+                date={startDate}
+                onDateChange={handleStartDateChange}
+                placeholder="Seleccionar fecha y hora de inicio"
               />
             </div>
 
             <div>
               <Label htmlFor="end_time">Hora de Fin *</Label>
-              <Input
-                id="end_time"
-                type="datetime-local"
-                value={toDatetimeLocal(formData.end_time)}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleFieldChange('end_time', fromDatetimeLocal(e.target.value))
-                  }
-                }}
-                required
+              <DateTimePicker
+                date={endDate}
+                onDateChange={handleEndDateChange}
+                placeholder="Seleccionar fecha y hora de fin"
               />
             </div>
 

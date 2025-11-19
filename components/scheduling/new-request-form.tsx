@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Clock, CheckCircle, AlertCircle } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DatePicker } from '@/components/ui/date-picker'
+import { DateTimePicker } from '@/components/ui/date-time-picker'
 
 interface Technician {
   id: string
@@ -39,6 +41,12 @@ export function NewRequestForm() {
   const [bookedId, setBookedId] = useState<string | null>(null)
   const [withinSLA, setWithinSLA] = useState(false)
 
+  // Date picker states
+  const [dateValue, setDateValue] = useState<Date | undefined>()
+  const [preferStartDate, setPreferStartDate] = useState<Date | undefined>()
+  const [slaFromDate, setSlaFromDate] = useState<Date | undefined>()
+  const [slaToDate, setSlaToDate] = useState<Date | undefined>()
+
   const supabase = supabaseBrowser
 
   useEffect(() => {
@@ -51,6 +59,27 @@ export function NewRequestForm() {
       .select('id, nombre')
       .eq('activo', true)
     setTechnicians(data || [])
+  }
+
+  // Handlers for date pickers
+  const handleDateChange = (d: Date | undefined) => {
+    setDateValue(d)
+    setDate(d ? d.toISOString().split('T')[0] : '')
+  }
+
+  const handlePreferStartChange = (d: Date | undefined) => {
+    setPreferStartDate(d)
+    setPreferStart(d ? d.toISOString().slice(0, 16) : '')
+  }
+
+  const handleSlaFromChange = (d: Date | undefined) => {
+    setSlaFromDate(d)
+    setSlaFrom(d ? d.toISOString().slice(0, 16) : '')
+  }
+
+  const handleSlaToChange = (d: Date | undefined) => {
+    setSlaToDate(d)
+    setSlaTo(d ? d.toISOString().slice(0, 16) : '')
   }
 
   function toISOAt(day: string, hhmm = "00:00") {
@@ -200,11 +229,10 @@ export function NewRequestForm() {
 
           <div className="space-y-2">
             <Label htmlFor="date">Fecha</Label>
-            <Input
-              id="date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
+            <DatePicker
+              date={dateValue}
+              onDateChange={handleDateChange}
+              placeholder="Seleccionar fecha"
             />
           </div>
 
@@ -222,31 +250,28 @@ export function NewRequestForm() {
 
           <div className="space-y-2">
             <Label htmlFor="prefer">Preferencia (inicio)</Label>
-            <Input
-              id="prefer"
-              type="datetime-local"
-              value={preferStart}
-              onChange={(e) => setPreferStart(e.target.value)}
+            <DateTimePicker
+              date={preferStartDate}
+              onDateChange={handlePreferStartChange}
+              placeholder="Hora preferida de inicio"
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="slaFrom">SLA desde</Label>
-            <Input
-              id="slaFrom"
-              type="datetime-local"
-              value={slaFrom}
-              onChange={(e) => setSlaFrom(e.target.value)}
+            <DateTimePicker
+              date={slaFromDate}
+              onDateChange={handleSlaFromChange}
+              placeholder="Inicio del SLA"
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="slaTo">SLA hasta</Label>
-            <Input
-              id="slaTo"
-              type="datetime-local"
-              value={slaTo}
-              onChange={(e) => setSlaTo(e.target.value)}
+            <DateTimePicker
+              date={slaToDate}
+              onDateChange={handleSlaToChange}
+              placeholder="Fin del SLA"
             />
           </div>
         </div>

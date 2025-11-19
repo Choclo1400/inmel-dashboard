@@ -55,14 +55,30 @@ export async function validateTechnicianSchedule(
 }
 
 /**
- * Valida que una fecha esté dentro del horario laboral (Lun-Vie, 8:00-18:00)
+ * Valida que una fecha esté dentro del horario laboral (Lun-Vie, 8:00-18:30)
  */
 export function isBusinessHours(date: Date): boolean {
   const dayOfWeek = date.getDay() // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
   const hours = date.getHours()
+  const minutes = date.getMinutes()
 
-  // Lunes a Viernes (1-5) y entre 8:00 y 18:00
-  return dayOfWeek >= 1 && dayOfWeek <= 5 && hours >= 8 && hours < 18
+  // Lunes a Viernes (1-5)
+  if (dayOfWeek < 1 || dayOfWeek > 5) {
+    return false
+  }
+
+  // Entre 8:00 y 18:30 (hasta las 6:30 PM)
+  if (hours < 8) {
+    return false
+  }
+  if (hours > 18) {
+    return false
+  }
+  if (hours === 18 && minutes > 30) {
+    return false
+  }
+
+  return true
 }
 
 /**
@@ -70,9 +86,14 @@ export function isBusinessHours(date: Date): boolean {
  */
 export function isNotPastDate(date: Date): boolean {
   const now = new Date()
-  now.setHours(0, 0, 0, 0) // Resetear a medianoche
-  date.setHours(0, 0, 0, 0)
-  return date >= now
+  // Crear copias para no modificar los originales
+  const nowCopy = new Date(now)
+  const dateCopy = new Date(date)
+
+  nowCopy.setHours(0, 0, 0, 0) // Resetear a medianoche
+  dateCopy.setHours(0, 0, 0, 0)
+
+  return dateCopy >= nowCopy
 }
 
 /**
@@ -151,7 +172,7 @@ export function validateSolicitudDate(date: Date): { valid: boolean; errors: str
   }
 
   if (!isBusinessHours(date)) {
-    errors.push("La fecha debe ser en horario laboral (Lun-Vie, 8:00-18:00)")
+    errors.push("La fecha debe ser en horario laboral (Lun-Vie, 8:00 - 18:30)")
   }
 
   return {
