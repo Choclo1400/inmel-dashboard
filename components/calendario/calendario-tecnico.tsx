@@ -60,6 +60,9 @@ interface CalendarioTecnicoProps {
   onSelectEvent?: (event: Programacion) => void
   onSelectSlot?: (slotInfo: { start: Date; end: Date; resource?: string }) => void
   onBookingCreated?: () => void
+  initialDate?: string  // ← AGREGAR
+  preSelectedRequestId?: string  // ← AGREGAR
+  preSelectedTechnicianId?: string  // ← AGREGAR
 }
 
 interface BookingFormData {
@@ -76,10 +79,13 @@ export function CalendarioTecnico({
   technicians = [],
   onSelectEvent,
   onSelectSlot,
-  onBookingCreated
+  onBookingCreated,
+  initialDate,  // ← AGREGAR
+  preSelectedRequestId,  // ← AGREGAR
+  preSelectedTechnicianId  // ← AGREGAR
 }: CalendarioTecnicoProps) {
   const [view, setView] = useState<View>('week')
-  const [date, setDate] = useState(new Date())
+  const [date, setDate] = useState(initialDate ? new Date(initialDate) : new Date())  // ← MODIFICAR
   const [dialogOpen, setDialogOpen] = useState(false)
   const [validating, setValidating] = useState(false)
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null)

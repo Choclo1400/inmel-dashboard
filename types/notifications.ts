@@ -6,6 +6,7 @@
  */
 
 import { Bell, CheckCircle, XCircle, Calendar, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/router';
 
 // =====================================================
 // TIPOS DE NOTIFICACIONES
@@ -316,3 +317,32 @@ export const NOTIFICATION_POLL_INTERVAL = 60000; // 1 minuto
  * Duración del sonido de notificación (ms)
  */
 export const NOTIFICATION_SOUND_DURATION = 500;
+
+/**
+ * Navega al calendario con la solicitud pre-seleccionada
+ * y posicionado en la fecha estimada (si existe)
+ */
+export function useScheduleRequest() {
+  const router = useRouter();
+
+  const handleScheduleRequest = (request: Solicitud) => {
+    const params = new URLSearchParams();
+    params.append('request', request.id);
+    
+    // Si tiene fecha estimada, navegar a esa fecha en el calendario
+    if (request.fecha_estimada) {
+      params.append('date', request.fecha_estimada);
+      console.log('📅 Navegando al calendario con fecha estimada:', request.fecha_estimada);
+    }
+    
+    // Si tiene técnico asignado, pre-seleccionarlo
+    if (request.tecnico_asignado_id) {
+      params.append('technician', request.tecnico_asignado_id);
+      console.log('👤 Pre-seleccionando técnico:', request.tecnico_asignado_id);
+    }
+    
+    router.push(`/programaciones?${params.toString()}`);
+  };
+
+  return { handleScheduleRequest };
+}

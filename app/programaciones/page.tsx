@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Calendar as CalendarIcon, Plus, Filter, Users, Clock, CheckCircle2, CalendarClock, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -32,6 +33,7 @@ export default function ProgramacionesPage() {
   const [realtimeConnected, setRealtimeConnected] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const { toast } = useToast()
+  const searchParams = useSearchParams()
 
   // Sonido de notificación - DESACTIVADO
   const playNotificationSound = () => {
@@ -458,6 +460,9 @@ export default function ProgramacionesPage() {
                 console.log('Evento seleccionado:', event)
               }}
               onBookingCreated={loadData}
+              initialDate={searchParams.get('date') || undefined}
+              preSelectedRequestId={searchParams.get('request') || undefined}
+              preSelectedTechnicianId={searchParams.get('technician') || undefined}
             />
           )}
         </TabsContent>

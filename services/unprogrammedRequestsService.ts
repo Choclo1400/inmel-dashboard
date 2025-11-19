@@ -56,7 +56,7 @@ class UnprogrammedRequestsService {
           )
         `)
         .eq('estado', 'Aprobada')
-        .eq('programada', false)
+        .or('programada.eq.false,programada.is.null')
         .order('prioridad', { ascending: false }) // Crítica/Alta primero
         .order('created_at', { ascending: true }); // Más antiguas primero
 
@@ -124,7 +124,7 @@ class UnprogrammedRequestsService {
         .from('solicitudes')
         .select('*', { count: 'exact', head: true })
         .eq('estado', 'Aprobada')
-        .eq('programada', false);
+        .or('programada.eq.false,programada.is.null');
 
       if (technicianId) {
         query = query.eq('tecnico_asignado_id', technicianId);

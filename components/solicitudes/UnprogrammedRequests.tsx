@@ -128,6 +128,7 @@ export default function UnprogrammedRequests() {
 
   // Efecto 2: Filtrar solicitudes cuando cambian los filtros
   useEffect(() => {
+    console.log('🔍 [FILTER] requests:', requests.length, 'searchTerm:', searchTerm, 'priorityFilter:', priorityFilter);
     let filtered = [...requests];
 
     // Filtro por búsqueda
@@ -149,7 +150,14 @@ export default function UnprogrammedRequests() {
     }
 
     setFilteredRequests(filtered);
+    console.log('✅ [FILTER] filteredRequests actualizados:', filtered.length);
   }, [requests, searchTerm, priorityFilter]);
+
+  // FIX: Resetear mountedRef cuando el componente se monta
+  useEffect(() => {
+    mountedRef.current = true;
+    console.log('🟢 [MOUNTED] Componente montado');
+  }, []);
 
   // =====================================================
   // FUNCIONES DE CARGA DE DATOS
@@ -161,21 +169,47 @@ export default function UnprogrammedRequests() {
   const loadRequests = async () => {
     try {
       setIsLoading(true);
+      console.log('🔍 Cargando solicitudes sin programar...');
+
       const data = await unprogrammedRequestsService.getUnprogrammedRequests();
 
-      if (mountedRef.current) {
-        setRequests(data);
+      console.log(`✅ Solicitudes cargadas: ${data.length} solicitudes encontradas`, data);
+
+      if (data.length === 0) {
+        console.warn('⚠️ No se encontraron solicitudes sin programar. Posibles causas:');
+        console.warn('  1. No hay solicitudes con estado "Aprobada"');
+        console.warn('  2. Todas las solicitudes aprobadas ya están programadas');
+        console.warn('  3. El campo "programada" tiene valores inesperados (NULL)');
+        console.warn('  4. Problema de permisos RLS en Supabase');
       }
-    } catch (error) {
-      console.error('Error cargando solicitudes sin programar:', error);
+
+      if (mountedRef.current) {
+        console.log('✅ [STATE] Actualizando state con', data.length, 'requests');
+        setRequests(data);
+      } else {
+        console.error('❌ [STATE] mountedRef es false, NO se actualiza state');
+      }
+    } catch (error: any) {
+      console.error('❌ Error cargando solicitudes sin programar:', error);
+      console.error('Detalles del error:', {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+      });
+
       toast({
-        title: 'Error',
-        description: 'No se pudieron cargar las solicitudes',
+        title: 'Error al cargar solicitudes',
+        description: error?.message || 'No se pudieron cargar las solicitudes. Verifica la consola para más detalles.',
         variant: 'destructive',
       });
     } finally {
+      console.log('🔧 [FINALLY] mountedRef.current:', mountedRef.current, 'isLoading actual:', isLoading);
       if (mountedRef.current) {
+        console.log('✅ [LOADING] Cambiando isLoading a false');
         setIsLoading(false);
+      } else {
+        console.error('❌ [LOADING] mountedRef es false, NO se cambia isLoading');
       }
     }
   };
@@ -249,7 +283,19 @@ export default function UnprogrammedRequests() {
    * Navega al calendario con la solicitud pre-seleccionada
    */
   const handleScheduleRequest = (request: Solicitud) => {
-    router.push(`/programaciones?request=${request.id}`);
+    const params = new URLSearchParams();
+    params.append('request', request.id);
+    params.append('tab', 'calendario');
+    
+    if (request.fecha_estimada) {
+      params.append('date', request.fecha_estimada);
+    }
+    
+    if (request.tecnico_asignado_id) {
+      params.append('technician', request.tecnico_asignado_id);
+    }
+    
+    router.push(`/programaciones?${params.toString()}`);
   };
 
   // =====================================================
@@ -259,10 +305,10 @@ export default function UnprogrammedRequests() {
   return (
     <div className="space-y-6">
       {/* Header con alerta informativa */}
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Solicitudes Aprobadas Sin Programar</AlertTitle>
-        <AlertDescription>
+      <Alert className="bg-slate-800 border-slate-700">
+        <AlertCircle className="h-4 w-4 text-orange-400" />
+        <AlertTitle className="text-slate-200">Solicitudes Aprobadas Sin Programar</AlertTitle>
+        <AlertDescription className="text-slate-400">
           Estas solicitudes han sido aprobadas pero aún no tienen una fecha/hora
           programada en el calendario. Haz clic en "Programar" para asignar un
           horario.
@@ -273,12 +319,12 @@ export default function UnprogrammedRequests() {
       <div className="flex flex-col sm:flex-row gap-4">
         {/* Búsqueda */}
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             placeholder="Buscar por número, descripción, ubicación..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-10 bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
           />
         </div>
 
@@ -287,11 +333,11 @@ export default function UnprogrammedRequests() {
           value={priorityFilter}
           onValueChange={(value) => setPriorityFilter(value as PriorityFilter)}
         >
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px] bg-slate-700 border-slate-600 text-white">
             <Filter className="h-4 w-4 mr-2" />
             <SelectValue placeholder="Prioridad" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-slate-700 border-slate-600">
             <SelectItem value="all">Todas las prioridades</SelectItem>
             <SelectItem value="Crítica">Crítica</SelectItem>
             <SelectItem value="Alta">Alta</SelectItem>
@@ -306,6 +352,7 @@ export default function UnprogrammedRequests() {
           size="icon"
           onClick={handleRefresh}
           disabled={isRefreshing}
+          className="border-slate-600 text-slate-300 hover:bg-slate-700"
         >
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
         </Button>
@@ -313,7 +360,7 @@ export default function UnprogrammedRequests() {
 
       {/* Contador */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-slate-400">
           {filteredRequests.length === requests.length
             ? `${requests.length} solicitud${requests.length !== 1 ? 'es' : ''} sin programar`
             : `${filteredRequests.length} de ${requests.length} solicitudes`}
@@ -325,29 +372,29 @@ export default function UnprogrammedRequests() {
         // Skeleton loading
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
-            <Card key={i}>
+            <Card key={i} className="bg-slate-800 border-slate-700">
               <CardHeader>
-                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-6 w-3/4 bg-slate-700" />
               </CardHeader>
               <CardContent className="space-y-3">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-2/3" />
-                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-4 w-full bg-slate-700" />
+                <Skeleton className="h-4 w-2/3 bg-slate-700" />
+                <Skeleton className="h-10 w-full bg-slate-700" />
               </CardContent>
             </Card>
           ))}
         </div>
       ) : filteredRequests.length === 0 ? (
         // Estado vacío
-        <Card className="border-dashed">
+        <Card className="border-dashed bg-slate-800 border-slate-700">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Calendar className="h-16 w-16 text-muted-foreground/50 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">
+            <Calendar className="h-16 w-16 text-slate-500 mb-4" />
+            <h3 className="text-lg font-semibold mb-2 text-slate-200">
               {searchTerm || priorityFilter !== 'all'
                 ? 'No se encontraron solicitudes'
                 : 'No hay solicitudes sin programar'}
             </h3>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
+            <p className="text-sm text-slate-400 text-center max-w-sm">
               {searchTerm || priorityFilter !== 'all'
                 ? 'Intenta ajustar los filtros de búsqueda'
                 : 'Todas las solicitudes aprobadas han sido programadas'}
@@ -363,11 +410,11 @@ export default function UnprogrammedRequests() {
             return (
               <Card
                 key={request.id}
-                className="hover:shadow-md transition-shadow"
+                className="hover:shadow-lg transition-all bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 shadow-md"
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-lg">
+                    <CardTitle className="text-lg text-slate-900 dark:text-slate-100">
                       Solicitud #{request.numero_solicitud}
                     </CardTitle>
                     <Badge className={config.color}>
@@ -378,21 +425,21 @@ export default function UnprogrammedRequests() {
 
                 <CardContent className="space-y-3">
                   {/* Descripción */}
-                  <p className="text-sm text-muted-foreground line-clamp-2">
+                  <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-2">
                     {request.descripcion}
                   </p>
 
                   {/* Información adicional */}
                   <div className="space-y-2 text-xs">
                     {/* Ubicación */}
-                    <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                       <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
                       <span className="truncate">{request.direccion}</span>
                     </div>
 
                     {/* Solicitante */}
                     {request.creador && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
+                      <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                         <User className="h-3.5 w-3.5 flex-shrink-0" />
                         <span className="truncate">
                           {request.creador.nombre} {request.creador.apellido}
@@ -401,7 +448,7 @@ export default function UnprogrammedRequests() {
                     )}
 
                     {/* Tiempo desde creación */}
-                    <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                       <Clock className="h-3.5 w-3.5 flex-shrink-0" />
                       <span>
                         Creada{' '}
@@ -414,7 +461,7 @@ export default function UnprogrammedRequests() {
 
                     {/* Técnico asignado (si existe) */}
                     {request.tecnico_asignado && (
-                      <div className="flex items-center gap-2 text-blue-600">
+                      <div className="flex items-center gap-2 text-blue-400">
                         <User className="h-3.5 w-3.5 flex-shrink-0" />
                         <span className="truncate font-medium">
                           Técnico: {request.tecnico_asignado.nombre} {request.tecnico_asignado.apellido}
@@ -426,7 +473,7 @@ export default function UnprogrammedRequests() {
                   {/* Botón de acción */}
                   <Button
                     onClick={() => handleScheduleRequest(request)}
-                    className="w-full mt-4"
+                    className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     <Calendar className="h-4 w-4 mr-2" />
                     Programar
