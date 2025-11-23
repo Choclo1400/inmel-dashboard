@@ -15,8 +15,7 @@ export const NAV_ITEMS: Array<{
   { id: 'programaciones',  label: 'Programaciones',  href: '/programaciones',  roles: ['admin', 'manager'] },
   { id: 'reportes',        label: 'Reportes',        href: '/reportes',        roles: ['admin', 'manager'] },
   
-  // TÉCNICO: Solicitudes asignadas, actualizaciones
-  { id: 'mis-solicitudes', label: 'Mis Solicitudes', href: '/mis-solicitudes', roles: ['technician'] },
+  // TÉCNICO: Tareas asignadas y actualizaciones
   { id: 'mis-tareas',      label: 'Mis Tareas',      href: '/mis-tareas',      roles: ['technician'] },
 
   // EMPLEADOR: Visualización y creación de solicitudes propias
@@ -45,8 +44,8 @@ const ROLE_HOME: Record<AppRole, string> = {
   admin: '/dashboard',        // Control total - Dashboard principal
   manager: '/dashboard',      // Dashboards principales para supervisión
   supervisor: '/dashboard',   // Seguimiento de tareas - Dashboard
-  technician: '/mis-solicitudes', // Acceso directo a solicitudes asignadas
-  operator: '/solicitudes',    // Empleado: seguimiento y creación de sus solicitudes
+  technician: '/mis-tareas',  // Acceso directo a tareas asignadas
+  operator: '/solicitudes',   // Empleado: seguimiento y creación de sus solicitudes
   employer: '/empleador',     // Vista específica para empleador
   system: '/auth/login',
 }

@@ -5,6 +5,7 @@
  */
 
 import { createBrowserClient } from '@supabase/ssr'
+import type { Solicitud } from './solicitudesService'
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,7 +47,7 @@ export interface Booking {
   updated_at: string
   // Joined data
   technician?: Technician
-  solicitud?: any
+  solicitud?: Solicitud
 }
 
 // ============================================================================

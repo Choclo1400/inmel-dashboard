@@ -1,69 +1,30 @@
 "use client"
 
-import { useState } from "react"
-import { Clock, MapPin, User, AlertCircle, CheckCircle, Calendar, Filter } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Clock, MapPin, User, AlertCircle, CheckCircle, Calendar, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import DashboardLayout from "@/components/layout/dashboard-layout"
+import { createClient } from "@/lib/supabase/client"
+import { useToast } from "@/hooks/use-toast"
 
-// Mock data for technician tasks
-const mockTasks = [
-  {
-    id: "SOL-2024-001",
-    title: "Mantenimiento Preventivo - Transformador 45kV",
-    client: "Empresa Minera Los Andes",
-    location: "Faena Los Pelambres, Salamanca",
-    priority: "high",
-    status: "in_progress",
-    scheduledDate: "2024-01-15",
-    estimatedHours: 4,
-    description: "Revisión completa del transformador principal, verificación de conexiones y pruebas de aislación.",
-    materials: ["Aceite dieléctrico", "Conectores", "Herramientas de medición"],
-    progress: 60,
-  },
-  {
-    id: "SOL-2024-002",
-    title: "Reparación Línea Media Tensión",
-    client: "Distribuidora Eléctrica Norte",
-    location: "Sector Industrial, Calama",
-    priority: "urgent",
-    status: "pending",
-    scheduledDate: "2024-01-16",
-    estimatedHours: 6,
-    description: "Reparación de conductor dañado en línea de 23kV, reemplazo de aisladores.",
-    materials: ["Conductor ACSR 4/0", "Aisladores", "Herrajes"],
-    progress: 0,
-  },
-  {
-    id: "SOL-2024-003",
-    title: "Instalación Medidor Trifásico",
-    client: "Hotel Atacama Plaza",
-    location: "Centro de Calama",
-    priority: "medium",
-    status: "completed",
-    scheduledDate: "2024-01-14",
-    estimatedHours: 2,
-    description: "Instalación de medidor trifásico y tablero de control para nueva conexión.",
-    materials: ["Medidor trifásico", "Tablero", "Cableado"],
-    progress: 100,
-  },
-  {
-    id: "SOL-2024-004",
-    title: "Inspección Rutinaria Subestación",
-    client: "Minera Escondida",
-    location: "Subestación Principal",
-    priority: "low",
-    status: "scheduled",
-    scheduledDate: "2024-01-18",
-    estimatedHours: 3,
-    description: "Inspección visual y termográfica de equipos de subestación 110kV.",
-    materials: ["Cámara termográfica", "Checklist de inspección"],
-    progress: 0,
-  },
-]
+interface Task {
+  id: string
+  title: string
+  client: string
+  location: string
+  priority: "low" | "medium" | "high" | "urgent"
+  status: "pending" | "scheduled" | "in_progress" | "completed"
+  scheduledDate: string
+  estimatedHours: number
+  description: string
+  materials: string[]
+  progress: number
+  solicitud_id?: string
+}
 
 const statusConfig = {
   pending: { label: "Pendiente", color: "bg-yellow-500", icon: Clock },
@@ -80,16 +41,160 @@ const priorityConfig = {
 }
 
 export default function MisTareasPage() {
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
+  const { toast } = useToast()
 
-  const filteredTasks = mockTasks.filter(task => {
+  useEffect(() => {
+    loadTasks()
+  }, [])
+
+  const loadTasks = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const supabase = createClient()
+
+      // Obtener usuario actual
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        setError("No se pudo obtener el usuario actual")
+        return
+      }
+
+      // Buscar el técnico asociado a este usuario
+      const { data: technician, error: techError } = await supabase
+        .from('technicians')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (techError || !technician) {
+        // Si no hay técnico, mostrar mensaje informativo
+        setTasks([])
+        setLoading(false)
+        return
+      }
+
+      // Obtener bookings del técnico con solicitudes relacionadas
+      const { data: bookings, error: bookingsError } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          solicitud:solicitudes(
+            id,
+            numero_solicitud,
+            tipo_trabajo,
+            descripcion,
+            direccion,
+            prioridad,
+            horas_estimadas,
+            cliente:clients(nombre)
+          )
+        `)
+        .eq('technician_id', technician.id)
+        .order('start_datetime', { ascending: true })
+
+      if (bookingsError) {
+        throw bookingsError
+      }
+
+      // Mapear bookings a formato de tareas
+      const mappedTasks: Task[] = (bookings || []).map((booking: any) => {
+        const solicitud = booking.solicitud
+
+        // Mapear estado de booking a estado de tarea
+        let taskStatus: Task["status"] = "scheduled"
+        if (booking.status === "done") taskStatus = "completed"
+        else if (booking.status === "confirmed") taskStatus = "in_progress"
+        else if (booking.status === "pending") taskStatus = "pending"
+
+        // Mapear prioridad
+        let taskPriority: Task["priority"] = "medium"
+        if (solicitud?.prioridad) {
+          const prioridadLower = solicitud.prioridad.toLowerCase()
+          if (prioridadLower === "urgente" || prioridadLower === "urgent") taskPriority = "urgent"
+          else if (prioridadLower === "alta" || prioridadLower === "high") taskPriority = "high"
+          else if (prioridadLower === "baja" || prioridadLower === "low") taskPriority = "low"
+        }
+
+        // Calcular progreso basado en estado
+        let progress = 0
+        if (taskStatus === "completed") progress = 100
+        else if (taskStatus === "in_progress") progress = 50
+
+        return {
+          id: booking.id,
+          title: booking.title || solicitud?.tipo_trabajo || "Tarea programada",
+          client: solicitud?.cliente?.nombre || "Cliente no especificado",
+          location: solicitud?.direccion || "Ubicación no especificada",
+          priority: taskPriority,
+          status: taskStatus,
+          scheduledDate: booking.start_datetime,
+          estimatedHours: solicitud?.horas_estimadas ||
+            Math.round((new Date(booking.end_datetime).getTime() - new Date(booking.start_datetime).getTime()) / (1000 * 60 * 60)),
+          description: booking.notes || solicitud?.descripcion || "Sin descripción",
+          materials: [],
+          progress,
+          solicitud_id: solicitud?.id
+        }
+      })
+
+      setTasks(mappedTasks)
+    } catch (err: any) {
+      setError(err.message || "Error al cargar las tareas")
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las tareas",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpdateStatus = async (taskId: string, newStatus: string) => {
+    try {
+      const supabase = createClient()
+
+      // Mapear status de tarea a status de booking
+      let bookingStatus = "confirmed"
+      if (newStatus === "completed") bookingStatus = "done"
+      else if (newStatus === "pending") bookingStatus = "pending"
+      else if (newStatus === "in_progress") bookingStatus = "confirmed"
+
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: bookingStatus })
+        .eq('id', taskId)
+
+      if (error) throw error
+
+      toast({
+        title: "Estado actualizado",
+        description: "La tarea se ha actualizado correctamente"
+      })
+
+      loadTasks()
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          task.client.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "all" || task.status === statusFilter
     const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter
-    
+
     return matchesSearch && matchesStatus && matchesPriority
   })
 
@@ -120,6 +225,34 @@ export default function MisTareasPage() {
     return "bg-gray-300"
   }
 
+  if (loading) {
+    return (
+      <DashboardLayout title="Mis Tareas" subtitle="Gestiona tus asignaciones y actualiza el progreso">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+          <span className="ml-2 text-slate-400">Cargando tareas...</span>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout title="Mis Tareas" subtitle="Gestiona tus asignaciones y actualiza el progreso">
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="py-8 text-center">
+            <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+            <h3 className="text-white text-lg font-medium mb-2">Error al cargar</h3>
+            <p className="text-slate-400 mb-4">{error}</p>
+            <Button onClick={loadTasks} variant="outline">
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    )
+  }
+
   return (
     <DashboardLayout title="Mis Tareas" subtitle="Gestiona tus asignaciones y actualiza el progreso">
       {/* Header with filters */}
@@ -145,7 +278,7 @@ export default function MisTareasPage() {
               <SelectItem value="completed">Completada</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Prioridad" />
@@ -180,34 +313,30 @@ export default function MisTareasPage() {
                     </div>
                     <div className="flex items-center gap-1">
                       <Calendar className="w-4 h-4" />
-                      {new Date(task.scheduledDate).toLocaleDateString()}
+                      {new Date(task.scheduledDate).toLocaleDateString('es-CL', {
+                        weekday: 'short',
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </div>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  {getPriorityBadge(task.priority as keyof typeof priorityConfig)}
-                  {getStatusBadge(task.status as keyof typeof statusConfig)}
+                  {getPriorityBadge(task.priority)}
+                  {getStatusBadge(task.status)}
                 </div>
               </div>
             </CardHeader>
-            
+
             <CardContent>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-white font-medium mb-2">Descripción</h4>
                   <p className="text-slate-300 text-sm mb-4">{task.description}</p>
-                  
-                  <h4 className="text-white font-medium mb-2">Materiales Requeridos</h4>
-                  <ul className="text-slate-300 text-sm space-y-1">
-                    {task.materials.map((material, idx) => (
-                      <li key={idx} className="flex items-center gap-2">
-                        <div className="w-1 h-1 bg-slate-400 rounded-full" />
-                        {material}
-                      </li>
-                    ))}
-                  </ul>
                 </div>
-                
+
                 <div>
                   <div className="mb-4">
                     <div className="flex justify-between items-center mb-2">
@@ -221,36 +350,39 @@ export default function MisTareasPage() {
                       />
                     </div>
                   </div>
-                  
+
                   <div className="flex justify-between items-center text-sm text-slate-400 mb-4">
                     <span>Tiempo estimado: {task.estimatedHours}h</span>
-                    <span>ID: {task.id}</span>
                   </div>
-                  
+
                   <div className="flex gap-2">
                     {task.status === 'pending' && (
-                      <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                      <Button
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700"
+                        onClick={() => handleUpdateStatus(task.id, 'in_progress')}
+                      >
+                        Iniciar Tarea
+                      </Button>
+                    )}
+                    {task.status === 'scheduled' && (
+                      <Button
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700"
+                        onClick={() => handleUpdateStatus(task.id, 'in_progress')}
+                      >
                         Iniciar Tarea
                       </Button>
                     )}
                     {task.status === 'in_progress' && (
-                      <>
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                          Actualizar Progreso
-                        </Button>
-                        <Button size="sm" variant="outline" className="border-slate-600 text-slate-300">
-                          Completar
-                        </Button>
-                      </>
-                    )}
-                    {task.status === 'scheduled' && (
-                      <Button size="sm" variant="outline" className="border-slate-600 text-slate-300">
-                        Ver Detalles
+                      <Button
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={() => handleUpdateStatus(task.id, 'completed')}
+                      >
+                        Completar
                       </Button>
                     )}
-                    <Button size="sm" variant="outline" className="border-slate-600 text-slate-300">
-                      Reportar Problema
-                    </Button>
                   </div>
                 </div>
               </div>
@@ -259,12 +391,16 @@ export default function MisTareasPage() {
         ))}
       </div>
 
-      {filteredTasks.length === 0 && (
+      {filteredTasks.length === 0 && !loading && (
         <Card className="bg-slate-800 border-slate-700">
           <CardContent className="py-8 text-center">
             <AlertCircle className="w-12 h-12 text-slate-400 mx-auto mb-4" />
             <h3 className="text-white text-lg font-medium mb-2">No se encontraron tareas</h3>
-            <p className="text-slate-400">No hay tareas que coincidan con los filtros seleccionados.</p>
+            <p className="text-slate-400">
+              {tasks.length === 0
+                ? "No tienes tareas asignadas actualmente."
+                : "No hay tareas que coincidan con los filtros seleccionados."}
+            </p>
           </CardContent>
         </Card>
       )}

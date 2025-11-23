@@ -118,11 +118,8 @@ export function CalendarioTecnico({
     if (preSelectedSolicitud && technicians.length > 0) {
       // Evitar procesar la misma solicitud múltiples veces
       if (processedSolicitudRef.current === preSelectedSolicitud.id) {
-        console.log('⏭️ [CalendarioTecnico] Solicitud ya procesada, ignorando:', preSelectedSolicitud.id)
         return
       }
-
-      console.log('📋 [CalendarioTecnico] Procesando solicitud pre-seleccionada:', preSelectedSolicitud)
 
       // Marcar como procesada
       processedSolicitudRef.current = preSelectedSolicitud.id
@@ -134,13 +131,11 @@ export function CalendarioTecnico({
       let startDateTime: Date
       if (preSelectedSolicitud.fecha_estimada) {
         startDateTime = new Date(preSelectedSolicitud.fecha_estimada)
-        console.log('📅 [CalendarioTecnico] Usando fecha_estimada:', startDateTime)
       } else {
         // Si no hay fecha estimada, usar mañana a las 9:00
         startDateTime = new Date()
         startDateTime.setDate(startDateTime.getDate() + 1)
         startDateTime.setHours(9, 0, 0, 0)
-        console.log('📅 [CalendarioTecnico] No hay fecha_estimada, usando mañana:', startDateTime)
       }
 
       // Calcular hora de fin basada en horas_estimadas o default 2 horas
@@ -209,7 +204,6 @@ export function CalendarioTecnico({
 
   // Función para resetear el formulario y estados
   const resetForm = () => {
-    console.log('🔄 Reseteando formulario')
     setFormData({
       technician_id: '',
       title: '',
@@ -268,7 +262,6 @@ export function CalendarioTecnico({
         })
       }
     } catch (error) {
-      console.error('Error validando disponibilidad:', error)
       setIsAvailable(null)
     } finally {
       setValidating(false)
@@ -284,10 +277,8 @@ export function CalendarioTecnico({
 
     try {
       const hours = await getWorkingHours(technicianId)
-      console.log('📅 [HORARIO] Horarios del técnico:', hours)
       setTechnicianWorkingHours(hours)
     } catch (error) {
-      console.error('❌ Error cargando horarios:', error)
       setTechnicianWorkingHours([])
     }
   }
@@ -352,13 +343,9 @@ export function CalendarioTecnico({
   }
 
   const handleSlotSelect = (slotInfo: { start: Date; end: Date; resource?: string }) => {
-    console.log('Slot seleccionado:', slotInfo)
-
     const startTime = slotInfo.start.toISOString()
     const endTime = slotInfo.end.toISOString()
     const technicianId = slotInfo.resource || (technicians.length > 0 ? technicians[0].id : '')
-
-    console.log('Preparando formulario con:', { technicianId, startTime, endTime })
 
     // Resetear formulario primero
     resetForm()
@@ -390,8 +377,6 @@ export function CalendarioTecnico({
   }
 
   const handleEventClick = (event: Programacion) => {
-    console.log('Evento seleccionado para edición:', event)
-
     // Establecer modo edición
     setEditingEvent(event)
 
@@ -431,8 +416,6 @@ export function CalendarioTecnico({
   }
 
   const handleNewProgramacion = () => {
-    console.log('🆕 Abriendo formulario para nueva programación')
-
     // Crear nueva programación con valores por defecto
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
@@ -474,10 +457,6 @@ export function CalendarioTecnico({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    console.log('Submit form data:', formData)
-    console.log('Is available:', isAvailable)
-    console.log('Editing event:', editingEvent)
 
     // VALIDACIÓN 1: Campos requeridos
     if (!formData.technician_id || !formData.start_time || !formData.end_time) {
@@ -560,7 +539,6 @@ export function CalendarioTecnico({
 
       if (editingEvent) {
         // MODO EDICIÓN: Actualizar booking existente
-        console.log('Actualizando booking:', editingEvent.id, bookingData)
         await updateBooking(editingEvent.id, bookingData)
 
         toast({
@@ -569,10 +547,6 @@ export function CalendarioTecnico({
         })
       } else {
         // MODO CREACIÓN: Crear nuevo booking
-        console.log('Creando booking:', bookingData)
-        if (currentSolicitud) {
-          console.log('📋 Vinculando con solicitud:', currentSolicitud.numero_solicitud)
-        }
         await createBooking(bookingData as CreateBookingData)
 
         toast({
@@ -606,7 +580,6 @@ export function CalendarioTecnico({
     if (!confirmDelete) return
 
     try {
-      console.log('Eliminando booking:', editingEvent.id)
       await deleteBooking(editingEvent.id)
 
       toast({
@@ -621,12 +594,6 @@ export function CalendarioTecnico({
       // Recargar calendario
       onBookingCreated?.()
     } catch (error) {
-      console.error('❌ Error eliminando booking:', error)
-      console.error('Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        bookingId: editingEvent.id,
-        error
-      })
       toast({
         title: '❌ Error al eliminar',
         description: error instanceof Error ? error.message : 'No se pudo eliminar la programación. Verifica los permisos en la base de datos.',

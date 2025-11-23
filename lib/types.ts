@@ -1,5 +1,31 @@
 export type UserRole = "admin" | "manager" | "supervisor" | "technician" | "operator"
 
+// Interfaces para datos estructurados
+export interface Material {
+  id?: string
+  nombre: string
+  cantidad: number
+  unidad: string
+  precio_unitario?: number
+}
+
+export interface Attachment {
+  id: string
+  url: string
+  filename: string
+  tipo: 'imagen' | 'documento' | 'otro'
+  size?: number
+  uploaded_at?: string
+}
+
+export interface AuditDetails {
+  campo_modificado?: string
+  valor_anterior?: string | number | boolean | null
+  valor_nuevo?: string | number | boolean | null
+  motivo?: string
+  metadata?: Record<string, unknown>
+}
+
 export interface User {
   id: string
   email: string
@@ -43,9 +69,9 @@ export interface ServiceRequest {
   scheduled_date?: string
   estimated_cost?: number
   actual_cost?: number
-  materials?: any
+  materials?: Material[]
   notes?: string
-  attachments?: any
+  attachments?: Attachment[]
   created_by: string
   created_at: string
   updated_at: string
@@ -73,7 +99,7 @@ export interface AuditLog {
   action: string
   resource: string
   resource_id?: string
-  details?: any
+  details?: AuditDetails
   ip_address?: string
   user_agent?: string
   created_at: string

@@ -30,8 +30,6 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      console.log("🔐 Intentando login con:", email)
-
       // Autenticar con Supabase
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
@@ -39,7 +37,6 @@ export default function LoginPage() {
       })
 
       if (authError) {
-        console.error("❌ Error de autenticación:", authError)
         throw authError
       }
 
@@ -47,26 +44,10 @@ export default function LoginPage() {
         throw new Error("No se pudo obtener la información del usuario")
       }
 
-      console.log("✅ Login exitoso:", data.user.email)
-
-      // Obtener perfil del usuario para verificar rol
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("rol, nombre, apellido")
-        .eq("id", data.user.id)
-        .single()
-
-      if (profileError) {
-        console.warn("⚠️ No se pudo cargar el perfil:", profileError)
-      }
-
-      console.log("👤 Perfil del usuario:", profile)
-
       // Redireccionar al dashboard
       router.push("/dashboard")
       router.refresh()
     } catch (err: any) {
-      console.error("❌ Error completo:", err)
 
       // Mensajes de error más amigables
       let errorMessage = "Error al iniciar sesión"
