@@ -62,7 +62,6 @@ export async function getTechnicians(): Promise<Technician[]> {
     .order('nombre')
 
   if (error) {
-    console.error('Error fetching technicians:', error)
     throw new Error('Failed to fetch technicians')
   }
 
@@ -87,7 +86,6 @@ export async function getTechnicianById(id: string): Promise<Technician | null> 
 
   if (error) {
     if (error.code === 'PGRST116') return null
-    console.error('Error fetching technician:', error)
     throw new Error('Failed to fetch technician')
   }
 
@@ -107,7 +105,6 @@ export async function getWorkingHours(technicianId: string): Promise<WorkingHour
     .order('weekday')
 
   if (error) {
-    console.error('Error fetching working hours:', error)
     throw new Error('Failed to fetch working hours')
   }
 
@@ -126,7 +123,6 @@ export async function getAllWorkingHours(): Promise<WorkingHours[]> {
     .order('technician_id, weekday')
 
   if (error) {
-    console.error('Error fetching all working hours:', error)
     throw new Error('Failed to fetch working hours')
   }
 
@@ -163,7 +159,6 @@ export async function getBookings(
   const { data, error } = await query.order('start_datetime')
 
   if (error) {
-    console.error('Error fetching bookings:', error)
     throw new Error('Failed to fetch bookings')
   }
 
@@ -186,7 +181,6 @@ export async function getBookingById(id: string): Promise<Booking | null> {
 
   if (error) {
     if (error.code === 'PGRST116') return null
-    console.error('Error fetching booking:', error)
     throw new Error('Failed to fetch booking')
   }
 
@@ -221,8 +215,6 @@ export async function createBooking(data: CreateBookingData): Promise<Booking> {
   if (data.notes) bookingData.notes = data.notes
   if (data.solicitud_id) bookingData.solicitud_id = data.solicitud_id
 
-  console.log('Creating booking with data:', bookingData)
-
   const { data: booking, error } = await supabase
     .from('bookings')
     .insert(bookingData)
@@ -233,7 +225,6 @@ export async function createBooking(data: CreateBookingData): Promise<Booking> {
     .single()
 
   if (error) {
-    console.error('Error creating booking:', error)
     // Detectar errores de overlap (constraint violation)
     if (error.code === '23P01' || error.message.includes('no_overlap_bookings')) {
       throw new Error('Time slot conflict: Another booking already exists in this time range')
@@ -241,24 +232,13 @@ export async function createBooking(data: CreateBookingData): Promise<Booking> {
     throw new Error('Failed to create booking')
   }
 
-  // 📋 Marcar la solicitud como programada si existe
+  // Marcar la solicitud como programada si existe
   if (data.solicitud_id) {
-    console.log('📋 [BOOKING] Marcando solicitud como programada:', data.solicitud_id)
-    const { error: updateError } = await supabase
+    await supabase
       .from('solicitudes')
       .update({ programada: true })
       .eq('id', data.solicitud_id)
-
-    if (updateError) {
-      console.error('⚠️ Error actualizando solicitud:', updateError)
-      // No lanzamos error aquí porque el booking ya fue creado
-    } else {
-      console.log('✅ [BOOKING] Solicitud marcada como programada')
-    }
   }
-
-  // 🔔 Notificaciones ahora se envían automáticamente mediante triggers de base de datos
-  console.log('✅ [BOOKING] Booking creado. Notificaciones se enviarán automáticamente vía trigger.')
 
   return booking
 }
@@ -273,8 +253,6 @@ export interface UpdateBookingData {
 }
 
 export async function updateBooking(id: string, data: UpdateBookingData): Promise<Booking> {
-  console.log('📝 Actualizando booking:', id, data)
-
   const { data: booking, error } = await supabase
     .from('bookings')
     .update(data)
@@ -286,11 +264,6 @@ export async function updateBooking(id: string, data: UpdateBookingData): Promis
     .single()
 
   if (error) {
-    console.error('❌ Error updating booking:', error)
-    console.error('Error code:', error.code)
-    console.error('Error message:', error.message)
-    console.error('Error details:', error.details)
-    console.error('Error hint:', error.hint)
     // Detectar errores de overlap
     if (error.code === '23P01' || (typeof error.message === 'string' && error.message.includes('booking_time_overlap'))) {
       throw new Error('Conflicto de horario: No se puede mover la reserva a este rango de tiempo')
@@ -298,36 +271,18 @@ export async function updateBooking(id: string, data: UpdateBookingData): Promis
     throw new Error(`Error al actualizar: ${error.message}`)
   }
 
-  console.log('✅ Booking actualizado exitosamente:', booking)
-
-  // 🔔 Notificaciones se envían automáticamente mediante triggers de base de datos
-  console.log('✅ [BOOKING] Booking actualizado. Notificaciones se enviarán automáticamente vía trigger.')
-
   return booking
 }
 
 export async function deleteBooking(id: string): Promise<void> {
-  console.log('🗑️ Iniciando eliminación de booking:', id)
-
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('bookings')
     .delete()
     .eq('id', id)
-    .select()
 
   if (error) {
-    console.error('❌ Error deleting booking:', error)
-    console.error('Error code:', error.code)
-    console.error('Error message:', error.message)
-    console.error('Error details:', error.details)
-    console.error('Error hint:', error.hint)
     throw new Error(`Error al eliminar: ${error.message}`)
   }
-
-  console.log('✅ Booking eliminado exitosamente:', data)
-
-  // 🔔 Notificaciones se envían automáticamente mediante triggers de base de datos
-  console.log('✅ [BOOKING] Booking eliminado. Notificaciones se enviarán automáticamente vía trigger.')
 }
 
 // ============================================================================
@@ -345,36 +300,25 @@ export async function checkAvailability(
   excludeBookingId?: string
 ): Promise<boolean> {
   try {
-    console.log('🔍 [CHECK AVAILABILITY] Validando disponibilidad para:', { technicianId, startTime, endTime })
-
     // 1. Verificar horarios de trabajo
     const workingHours = await getWorkingHours(technicianId)
-    console.log('📅 [CHECK AVAILABILITY] Horarios encontrados:', workingHours.length)
 
     const startDate = new Date(startTime)
     const dayOfWeek = startDate.getDay()
 
     const workingToday = workingHours.find(wh => wh.weekday === dayOfWeek)
 
-    // Si no tiene horarios configurados, permitir pero con advertencia
+    // Si no tiene horarios configurados, solo verificar conflictos
     if (workingHours.length === 0) {
-      console.log('⚠️ [CHECK AVAILABILITY] Técnico sin horarios configurados - permitiendo crear')
       // Solo verificar conflictos, no horarios
     } else if (!workingToday) {
-      console.log('❌ [CHECK AVAILABILITY] No trabaja este día de la semana')
       return false // No trabaja este día
     } else {
       // 2. Verificar que esté dentro del horario configurado
       const startTimeStr = startDate.toTimeString().slice(0, 5) // HH:MM
       const endTimeStr = new Date(endTime).toTimeString().slice(0, 5)
 
-      console.log('⏰ [CHECK AVAILABILITY] Comparando horarios:', {
-        solicitado: `${startTimeStr} - ${endTimeStr}`,
-        permitido: `${workingToday.start_time} - ${workingToday.end_time}`
-      })
-
       if (startTimeStr < workingToday.start_time || endTimeStr > workingToday.end_time) {
-        console.log('❌ [CHECK AVAILABILITY] Fuera del horario de trabajo')
         return false // Fuera del horario de trabajo
       }
     }
@@ -395,17 +339,12 @@ export async function checkAvailability(
     const { data: conflicts, error: queryError } = await query
 
     if (queryError) {
-      console.error('❌ [CHECK AVAILABILITY] Error en query:', queryError)
       throw queryError
     }
 
     const hasConflicts = conflicts && conflicts.length > 0
-    console.log('🔍 [CHECK AVAILABILITY] Conflictos encontrados:', conflicts?.length || 0)
-    console.log('✅ [CHECK AVAILABILITY] Disponible:', !hasConflicts)
-
     return !hasConflicts
   } catch (error) {
-    console.error('❌ [CHECK AVAILABILITY] Error general:', error)
     return false
   }
 }
@@ -463,7 +402,6 @@ export async function getDayAvailableSlots(
 
     return slots
   } catch (error) {
-    console.error('Error getting day slots:', error)
     return []
   }
 }
@@ -484,7 +422,6 @@ export async function searchBookings(searchTerm: string): Promise<Booking[]> {
     .limit(50)
 
   if (error) {
-    console.error('Error searching bookings:', error)
     throw new Error('Failed to search bookings')
   }
 
@@ -502,7 +439,6 @@ export async function getBookingsByStatus(status: string): Promise<Booking[]> {
     .order('start_datetime')
 
   if (error) {
-    console.error('Error fetching bookings by status:', error)
     throw new Error('Failed to fetch bookings')
   }
 
@@ -527,10 +463,8 @@ export async function getTechnicianByUserId(userId: string): Promise<Technician 
 
   if (error) {
     if (error.code === 'PGRST116') {
-      console.warn(`No technician found for user_id: ${userId}`)
       return null
     }
-    console.error('Error fetching technician by user_id:', error)
     throw new Error('Failed to fetch technician')
   }
 
@@ -551,7 +485,6 @@ export async function getBookingsBySolicitudId(solicitudId: string): Promise<Boo
     .order('start_datetime')
 
   if (error) {
-    console.error('Error fetching bookings by solicitud:', error)
     throw new Error('Failed to fetch bookings for solicitud')
   }
 
@@ -618,8 +551,6 @@ export async function createBookingFromSolicitud(
     .single()
 
   if (error) {
-    console.error('Error creating booking from solicitud:', error)
-
     // Detectar errores específicos
     if (error.code === '23P01' || error.message.includes('no_overlap_bookings')) {
       throw new Error('Conflicto de horario: Ya existe otra reserva en este rango de tiempo')
@@ -666,13 +597,7 @@ export async function updateBookingStatus(
     .single()
 
   if (error) {
-    console.error('Error updating booking status:', error)
     throw new Error('Failed to update booking status')
-  }
-
-  // 🔔 Notificaciones se envían automáticamente mediante triggers de base de datos
-  if (oldStatus !== status) {
-    console.log('✅ [BOOKING] Estado cambiado. Notificaciones se enviarán automáticamente vía trigger.')
   }
 
   return booking
@@ -712,7 +637,6 @@ export async function getBookingWithSolicitud(bookingId: string) {
 
   if (error) {
     if (error.code === 'PGRST116') return null
-    console.error('Error fetching booking with solicitud:', error)
     throw new Error('Failed to fetch booking details')
   }
 
