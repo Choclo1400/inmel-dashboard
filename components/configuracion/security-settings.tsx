@@ -16,11 +16,9 @@ interface SecuritySettingsProps {
 
 export function SecuritySettings({ user }: SecuritySettingsProps) {
   const [loading, setLoading] = useState(false)
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [formData, setFormData] = useState({
-    currentPassword: "",
     newPassword: "",
     confirmPassword: ""
   })
@@ -67,12 +65,10 @@ export function SecuritySettings({ user }: SecuritySettingsProps) {
 
       // Reset form
       setFormData({
-        currentPassword: "",
         newPassword: "",
         confirmPassword: ""
       })
     } catch (error: any) {
-      console.error('Error updating password:', error)
       toast({
         title: "Error",
         description: error.message || "No se pudo actualizar la contraseña",

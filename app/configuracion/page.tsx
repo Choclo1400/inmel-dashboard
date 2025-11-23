@@ -28,17 +28,17 @@ export default function ConfiguracionPage() {
       setUser(user)
 
       if (user) {
-        // Get user profile
+        // Get user profile from profiles table
         const { data: profileData } = await supabase
-          .from('users')
+          .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single()
 
         setProfile(profileData)
       }
-    } catch (error) {
-      console.error('Error loading user data:', error)
+    } catch {
+      // Error loading user data
     } finally {
       setLoading(false)
     }

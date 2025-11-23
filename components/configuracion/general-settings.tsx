@@ -32,7 +32,7 @@ export function GeneralSettings({ user, profile, onUpdate }: GeneralSettingsProp
       const supabase = createClient()
 
       const { error } = await supabase
-        .from('users')
+        .from('profiles')
         .update({
           nombre: formData.nombre,
           apellido: formData.apellido,
@@ -49,7 +49,6 @@ export function GeneralSettings({ user, profile, onUpdate }: GeneralSettingsProp
 
       onUpdate()
     } catch (error: any) {
-      console.error('Error updating profile:', error)
       toast({
         title: "Error",
         description: error.message || "No se pudo actualizar el perfil",
@@ -145,7 +144,7 @@ export function GeneralSettings({ user, profile, onUpdate }: GeneralSettingsProp
             <div className="space-y-2">
               <Label className="text-slate-400 text-sm">Rol</Label>
               <div className="p-3 bg-slate-700/50 rounded-md border border-slate-600">
-                <p className="text-white capitalize">{profile?.role || "Usuario"}</p>
+                <p className="text-white">{profile?.rol || "Usuario"}</p>
               </div>
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 import DashboardLayout from "@/components/layout/dashboard-layout"
 import { EmployerWelcome } from "@/components/role-dashboards"
-import { PermissionGuard } from "@/components/rbac/permissionguard"
+import { PermissionGuard } from "@/components/rbac/PermissionGuard"
 
 export default function EmpleadorPage() {
   return (
