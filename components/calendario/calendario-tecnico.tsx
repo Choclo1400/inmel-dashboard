@@ -6,13 +6,14 @@
 
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { Calendar, momentLocalizer, View } from 'react-big-calendar'
 import moment from 'moment'
 import 'moment/locale/es'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Calendar as CalendarIcon, X, AlertCircle, CheckCircle, Plus } from 'lucide-react'
+import { Calendar as CalendarIcon, X, AlertCircle, CheckCircle, Plus, FileText } from 'lucide-react'
+import type { Solicitud } from '@/lib/services/solicitudesService'
 import {
   Dialog,
   DialogContent,
@@ -60,9 +61,9 @@ interface CalendarioTecnicoProps {
   onSelectEvent?: (event: Programacion) => void
   onSelectSlot?: (slotInfo: { start: Date; end: Date; resource?: string }) => void
   onBookingCreated?: () => void
-  initialDate?: string  // ← AGREGAR
-  preSelectedRequestId?: string  // ← AGREGAR
-  preSelectedTechnicianId?: string  // ← AGREGAR
+  initialDate?: string
+  preSelectedSolicitud?: Solicitud | null
+  preSelectedTechnicianId?: string
 }
 
 interface BookingFormData {
@@ -80,19 +81,23 @@ export function CalendarioTecnico({
   onSelectEvent,
   onSelectSlot,
   onBookingCreated,
-  initialDate,  // ← AGREGAR
-  preSelectedRequestId,  // ← AGREGAR
-  preSelectedTechnicianId  // ← AGREGAR
+  initialDate,
+  preSelectedSolicitud,
+  preSelectedTechnicianId
 }: CalendarioTecnicoProps) {
   const [view, setView] = useState<View>('week')
-  const [date, setDate] = useState(initialDate ? new Date(initialDate) : new Date())  // ← MODIFICAR
+  const [date, setDate] = useState(initialDate ? new Date(initialDate) : new Date())
   const [dialogOpen, setDialogOpen] = useState(false)
   const [validating, setValidating] = useState(false)
   const [isAvailable, setIsAvailable] = useState<boolean | null>(null)
   const [horasInvalidas, setHorasInvalidas] = useState(false)
   const [editingEvent, setEditingEvent] = useState<Programacion | null>(null)
   const [technicianWorkingHours, setTechnicianWorkingHours] = useState<WorkingHours[]>([])
+  const [currentSolicitud, setCurrentSolicitud] = useState<Solicitud | null>(null)
   const { toast} = useToast()
+
+  // Ref para evitar procesar la misma solicitud múltiples veces
+  const processedSolicitudRef = useRef<string | null>(null)
 
   // Estado del formulario
   const [formData, setFormData] = useState<BookingFormData>({
@@ -107,6 +112,100 @@ export function CalendarioTecnico({
   // Estado para los date pickers
   const [startDate, setStartDate] = useState<Date | undefined>()
   const [endDate, setEndDate] = useState<Date | undefined>()
+
+  // Manejar solicitud pre-seleccionada desde "Sin Programar"
+  useEffect(() => {
+    if (preSelectedSolicitud && technicians.length > 0) {
+      // Evitar procesar la misma solicitud múltiples veces
+      if (processedSolicitudRef.current === preSelectedSolicitud.id) {
+        console.log('⏭️ [CalendarioTecnico] Solicitud ya procesada, ignorando:', preSelectedSolicitud.id)
+        return
+      }
+
+      console.log('📋 [CalendarioTecnico] Procesando solicitud pre-seleccionada:', preSelectedSolicitud)
+
+      // Marcar como procesada
+      processedSolicitudRef.current = preSelectedSolicitud.id
+
+      // Guardar la solicitud actual
+      setCurrentSolicitud(preSelectedSolicitud)
+
+      // Determinar fecha/hora de inicio
+      let startDateTime: Date
+      if (preSelectedSolicitud.fecha_estimada) {
+        startDateTime = new Date(preSelectedSolicitud.fecha_estimada)
+        console.log('📅 [CalendarioTecnico] Usando fecha_estimada:', startDateTime)
+      } else {
+        // Si no hay fecha estimada, usar mañana a las 9:00
+        startDateTime = new Date()
+        startDateTime.setDate(startDateTime.getDate() + 1)
+        startDateTime.setHours(9, 0, 0, 0)
+        console.log('📅 [CalendarioTecnico] No hay fecha_estimada, usando mañana:', startDateTime)
+      }
+
+      // Calcular hora de fin basada en horas_estimadas o default 2 horas
+      const horasEstimadas = preSelectedSolicitud.horas_estimadas || 2
+      const endDateTime = new Date(startDateTime.getTime() + horasEstimadas * 60 * 60 * 1000)
+
+      // Navegar el calendario a esa fecha
+      setDate(startDateTime)
+      setView('day') // Vista día para ver los slots de tiempo específicos
+
+      // Determinar técnico (pre-asignado o primero disponible)
+      const technicianId = preSelectedSolicitud.tecnico_asignado_id ||
+                          preSelectedTechnicianId ||
+                          (technicians.length > 0 ? technicians[0].id : '')
+
+      // Construir título con información de la solicitud
+      const title = `${preSelectedSolicitud.tipo_trabajo || 'Trabajo'} - ${preSelectedSolicitud.numero_solicitud}`
+
+      // Construir notas con descripción y dirección
+      const notes = [
+        preSelectedSolicitud.descripcion,
+        preSelectedSolicitud.direccion ? `📍 ${preSelectedSolicitud.direccion}` : '',
+        preSelectedSolicitud.prioridad ? `⚡ Prioridad: ${preSelectedSolicitud.prioridad}` : ''
+      ].filter(Boolean).join('\n')
+
+      // Resetear formulario primero
+      resetForm()
+
+      // Pre-llenar el formulario
+      const newFormData = {
+        technician_id: technicianId,
+        title,
+        notes,
+        start_time: startDateTime.toISOString(),
+        end_time: endDateTime.toISOString(),
+        status: 'pending' as const
+      }
+
+      setFormData(newFormData)
+      setStartDate(startDateTime)
+      setEndDate(endDateTime)
+
+      // Abrir el diálogo automáticamente
+      setDialogOpen(true)
+
+      // Cargar horarios del técnico y validar disponibilidad
+      if (technicianId) {
+        loadTechnicianSchedule(technicianId)
+        setTimeout(() => {
+          validateAvailability(
+            technicianId,
+            startDateTime.toISOString(),
+            endDateTime.toISOString()
+          )
+        }, 300)
+      }
+
+      // Mostrar toast informativo
+      toast({
+        title: "📋 Solicitud cargada",
+        description: `Programando: ${preSelectedSolicitud.numero_solicitud}`,
+        duration: 4000
+      })
+    }
+  }, [preSelectedSolicitud, technicians])
 
   // Función para resetear el formulario y estados
   const resetForm = () => {
@@ -125,6 +224,9 @@ export function CalendarioTecnico({
     setHorasInvalidas(false)
     setEditingEvent(null)
     setValidating(false)
+    setCurrentSolicitud(null)
+    // Limpiar ref de solicitud procesada para permitir nuevas solicitudes
+    processedSolicitudRef.current = null
   }
 
   // Handlers para los date pickers
@@ -452,7 +554,8 @@ export function CalendarioTecnico({
         notes: formData.notes || undefined,
         start_datetime: formData.start_time,
         end_datetime: formData.end_time,
-        status: formData.status
+        status: formData.status,
+        solicitud_id: currentSolicitud?.id // Incluir ID de solicitud si existe
       }
 
       if (editingEvent) {
@@ -467,11 +570,16 @@ export function CalendarioTecnico({
       } else {
         // MODO CREACIÓN: Crear nuevo booking
         console.log('Creando booking:', bookingData)
+        if (currentSolicitud) {
+          console.log('📋 Vinculando con solicitud:', currentSolicitud.numero_solicitud)
+        }
         await createBooking(bookingData as CreateBookingData)
 
         toast({
           title: 'Éxito',
-          description: 'Programación creada correctamente'
+          description: currentSolicitud
+            ? `Programación creada para ${currentSolicitud.numero_solicitud}`
+            : 'Programación creada correctamente'
         })
       }
 
@@ -629,11 +737,39 @@ export function CalendarioTecnico({
       </Card>
 
       {/* Dialog para crear/editar programación con validaciones */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open)
+        // Resetear cuando se cierra el diálogo (por cualquier medio)
+        if (!open) {
+          resetForm()
+        }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{editingEvent ? 'Editar Programación' : 'Nueva Programación'}</DialogTitle>
           </DialogHeader>
+
+          {/* Banner informativo cuando hay solicitud pre-seleccionada */}
+          {currentSolicitud && !editingEvent && (
+            <div className="p-3 bg-blue-950/50 rounded-lg border border-blue-800 mb-2">
+              <div className="flex items-start gap-2">
+                <FileText className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-blue-300">
+                    Programando solicitud: {currentSolicitud.numero_solicitud}
+                  </p>
+                  <p className="text-xs text-blue-400/80">
+                    {currentSolicitud.tipo_trabajo} • {currentSolicitud.prioridad}
+                  </p>
+                  {currentSolicitud.direccion && (
+                    <p className="text-xs text-slate-400">
+                      📍 {currentSolicitud.direccion}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

@@ -32,8 +32,59 @@ export default function ProgramacionesPage() {
   const [activeTab, setActiveTab] = useState<string>("calendario")
   const [realtimeConnected, setRealtimeConnected] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+  const [preSelectedSolicitud, setPreSelectedSolicitud] = useState<Solicitud | null>(null)
   const { toast } = useToast()
   const searchParams = useSearchParams()
+
+  // Manejar parámetros de URL para navegación desde "Sin Programar"
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    const requestParam = searchParams.get('request')
+
+    // Cambiar a la pestaña indicada
+    if (tabParam && (tabParam === 'calendario' || tabParam === 'sin-programar')) {
+      setActiveTab(tabParam)
+    }
+
+    // Si hay una solicitud pre-seleccionada, cargarla
+    if (requestParam) {
+      console.log('📋 [Programaciones] Cargando solicitud pre-seleccionada:', requestParam)
+
+      const loadPreSelectedSolicitud = async () => {
+        try {
+          const solicitud = await solicitudesService.getById(requestParam)
+          if (solicitud) {
+            console.log('✅ [Programaciones] Solicitud cargada:', solicitud)
+            setPreSelectedSolicitud(solicitud)
+          } else {
+            console.warn('⚠️ [Programaciones] No se encontró la solicitud:', requestParam)
+            toast({
+              title: "Solicitud no encontrada",
+              description: "No se pudo cargar la solicitud seleccionada",
+              variant: "destructive"
+            })
+          }
+        } catch (error) {
+          console.error('❌ [Programaciones] Error cargando solicitud:', error)
+          toast({
+            title: "Error",
+            description: "No se pudo cargar la solicitud seleccionada",
+            variant: "destructive"
+          })
+        }
+      }
+
+      loadPreSelectedSolicitud()
+    }
+  }, [searchParams, toast])
+
+  // Limpiar solicitud pre-seleccionada después de usarla
+  const handleBookingCreatedFromPreSelected = () => {
+    setPreSelectedSolicitud(null)
+    // Limpiar URL parameters
+    window.history.replaceState({}, '', '/programaciones')
+    loadData()
+  }
 
   // Sonido de notificación - DESACTIVADO
   const playNotificationSound = () => {
@@ -459,9 +510,9 @@ export default function ProgramacionesPage() {
               onSelectEvent={(event) => {
                 console.log('Evento seleccionado:', event)
               }}
-              onBookingCreated={loadData}
+              onBookingCreated={preSelectedSolicitud ? handleBookingCreatedFromPreSelected : loadData}
               initialDate={searchParams.get('date') || undefined}
-              preSelectedRequestId={searchParams.get('request') || undefined}
+              preSelectedSolicitud={preSelectedSolicitud}
               preSelectedTechnicianId={searchParams.get('technician') || undefined}
             />
           )}

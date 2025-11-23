@@ -24,6 +24,9 @@ export const NAV_ITEMS: Array<{
 
   // ADMINISTRADOR EXCLUSIVO: Configuración del sistema
   { id: 'usuarios',        label: 'Usuarios',        href: '/usuarios',        roles: ['admin'] },
+
+  // TODOS LOS USUARIOS: Configuración personal
+  { id: 'configuracion',   label: 'Configuración',   href: '/configuracion',   roles: ['admin', 'supervisor', 'manager', 'technician', 'operator', 'employer'] },
 ]
 
  export type AppRole = 'admin' | 'supervisor' | 'manager' | 'technician' | 'operator' | 'employer' | 'system'

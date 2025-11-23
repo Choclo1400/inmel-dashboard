@@ -240,6 +240,22 @@ export async function createBooking(data: CreateBookingData): Promise<Booking> {
     throw new Error('Failed to create booking')
   }
 
+  // 📋 Marcar la solicitud como programada si existe
+  if (data.solicitud_id) {
+    console.log('📋 [BOOKING] Marcando solicitud como programada:', data.solicitud_id)
+    const { error: updateError } = await supabase
+      .from('solicitudes')
+      .update({ programada: true })
+      .eq('id', data.solicitud_id)
+
+    if (updateError) {
+      console.error('⚠️ Error actualizando solicitud:', updateError)
+      // No lanzamos error aquí porque el booking ya fue creado
+    } else {
+      console.log('✅ [BOOKING] Solicitud marcada como programada')
+    }
+  }
+
   // 🔔 Notificaciones ahora se envían automáticamente mediante triggers de base de datos
   console.log('✅ [BOOKING] Booking creado. Notificaciones se enviarán automáticamente vía trigger.')
 
