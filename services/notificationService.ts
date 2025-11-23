@@ -62,13 +62,11 @@ class NotificationService {
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error obteniendo notificaciones:', error);
         throw error;
       }
 
       return (data || []) as Notification[];
     } catch (error) {
-      console.error('Error en getNotifications:', error);
       return [];
     }
   }
@@ -98,13 +96,11 @@ class NotificationService {
         .eq('is_read', false);
 
       if (error) {
-        console.error('Error obteniendo contador:', error);
         return 0;
       }
 
       return count || 0;
     } catch (error) {
-      console.error('Error en getUnreadCount:', error);
       return 0;
     }
   }
@@ -128,13 +124,11 @@ class NotificationService {
       );
 
       if (error) {
-        console.error('Error marcando notificación como leída:', error);
         return false;
       }
 
       return data === true;
     } catch (error) {
-      console.error('Error en markAsRead:', error);
       return false;
     }
   }
@@ -156,13 +150,11 @@ class NotificationService {
       );
 
       if (error) {
-        console.error('Error marcando todas como leídas:', error);
         return 0;
       }
 
       return data || 0;
     } catch (error) {
-      console.error('Error en markAllAsRead:', error);
       return 0;
     }
   }
@@ -186,13 +178,11 @@ class NotificationService {
         .eq('user_id', user.id); // RLS asegura que solo borre sus propias notificaciones
 
       if (error) {
-        console.error('Error eliminando notificación:', error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error en deleteNotification:', error);
       return false;
     }
   }
@@ -215,13 +205,11 @@ class NotificationService {
         .eq('is_read', true);
 
       if (error) {
-        console.error('Error eliminando notificaciones leídas:', error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error en deleteAllRead:', error);
       return false;
     }
   }
@@ -314,7 +302,6 @@ class NotificationService {
    */
   async requestNotificationPermission(): Promise<boolean> {
     if (typeof window === 'undefined' || !('Notification' in window)) {
-      console.warn('Web Notifications API no soportada en este navegador');
       return false;
     }
 
@@ -365,7 +352,7 @@ class NotificationService {
         browserNotification.close();
       }, 5000);
     } catch (error) {
-      console.error('Error mostrando notificación del navegador:', error);
+      // Silent fail for browser notifications
     }
   }
 
@@ -400,13 +387,11 @@ class NotificationService {
         .single();
 
       if (error) {
-        console.error('Error obteniendo notificación:', error);
         return null;
       }
 
       return data as Notification;
     } catch (error) {
-      console.error('Error en getNotificationById:', error);
       return null;
     }
   }
@@ -431,13 +416,11 @@ class NotificationService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error obteniendo notificaciones del booking:', error);
         return [];
       }
 
       return (data || []) as Notification[];
     } catch (error) {
-      console.error('Error en getNotificationsByBooking:', error);
       return [];
     }
   }
@@ -462,13 +445,11 @@ class NotificationService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error obteniendo notificaciones de la solicitud:', error);
         return [];
       }
 
       return (data || []) as Notification[];
     } catch (error) {
-      console.error('Error en getNotificationsByRequest:', error);
       return [];
     }
   }
