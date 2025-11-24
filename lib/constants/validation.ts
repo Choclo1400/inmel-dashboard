@@ -54,24 +54,5 @@ export const PRIORIDADES_SOLICITUD = [
   "Crítica",
 ] as const
 
-export const TIPOS_TRABAJO = [
-  "Instalación",
-  "Mantenimiento Preventivo",
-  "Mantenimiento Correctivo",
-  "Reparación",
-  "Inspección",
-  "Otro",
-] as const
-
-export const ROLES = [
-  "Administrador",
-  "Supervisor",
-  "Gestor",
-  "Técnico",
-  "Empleado",
-] as const
-
 export type EstadoSolicitud = typeof ESTADOS_SOLICITUD[number]
 export type PrioridadSolicitud = typeof PRIORIDADES_SOLICITUD[number]
-export type TipoTrabajo = typeof TIPOS_TRABAJO[number]
-export type Role = typeof ROLES[number]
