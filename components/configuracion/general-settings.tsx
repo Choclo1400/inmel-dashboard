@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { User, Mail, Building, Save } from "lucide-react"
+import { User, Mail, Building, Save, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
 
@@ -15,8 +16,20 @@ interface GeneralSettingsProps {
   onUpdate: () => void
 }
 
+const getRoleBadgeColor = (rol: string) => {
+  const colors: Record<string, string> = {
+    'Administrador': 'bg-purple-600 hover:bg-purple-600',
+    'Gestor': 'bg-blue-600 hover:bg-blue-600',
+    'Supervisor': 'bg-green-600 hover:bg-green-600',
+    'Técnico': 'bg-orange-600 hover:bg-orange-600',
+    'Empleado': 'bg-slate-600 hover:bg-slate-600'
+  }
+  return colors[rol] || 'bg-slate-600 hover:bg-slate-600'
+}
+
 export function GeneralSettings({ user, profile, onUpdate }: GeneralSettingsProps) {
   const [loading, setLoading] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [formData, setFormData] = useState({
     nombre: profile?.nombre || "",
     apellido: profile?.apellido || "",
@@ -47,6 +60,9 @@ export function GeneralSettings({ user, profile, onUpdate }: GeneralSettingsProp
         description: "Tu información ha sido guardada correctamente"
       })
 
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+
       onUpdate()
     } catch (error: any) {
       toast({
@@ -73,6 +89,25 @@ export function GeneralSettings({ user, profile, onUpdate }: GeneralSettingsProp
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Avatar con iniciales */}
+          <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-700">
+            {profile?.nombre && profile?.apellido ? (
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-2xl font-bold text-white shadow-lg">
+                {profile.nombre[0]}{profile.apellido[0]}
+              </div>
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-slate-700 flex items-center justify-center">
+                <User className="h-10 w-10 text-slate-400" />
+              </div>
+            )}
+            <div>
+              <h3 className="text-lg font-semibold text-white">
+                {profile?.nombre} {profile?.apellido}
+              </h3>
+              <p className="text-sm text-slate-400">{user?.email}</p>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -108,7 +143,13 @@ export function GeneralSettings({ user, profile, onUpdate }: GeneralSettingsProp
               />
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end items-center gap-3">
+              {saved && (
+                <div className="flex items-center gap-2 text-green-400 animate-in fade-in duration-300">
+                  <CheckCircle className="h-4 w-4" />
+                  <span className="text-sm font-medium">Cambios guardados</span>
+                </div>
+              )}
               <Button
                 type="submit"
                 disabled={loading}
@@ -143,8 +184,10 @@ export function GeneralSettings({ user, profile, onUpdate }: GeneralSettingsProp
             </div>
             <div className="space-y-2">
               <Label className="text-slate-400 text-sm">Rol</Label>
-              <div className="p-3 bg-slate-700/50 rounded-md border border-slate-600">
-                <p className="text-white">{profile?.rol || "Usuario"}</p>
+              <div className="p-3 bg-slate-700/50 rounded-md border border-slate-600 flex items-center">
+                <Badge className={`${getRoleBadgeColor(profile?.rol)} text-white`}>
+                  {profile?.rol || "Usuario"}
+                </Badge>
               </div>
             </div>
           </div>
