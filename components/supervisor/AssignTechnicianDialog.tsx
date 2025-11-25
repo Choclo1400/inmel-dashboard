@@ -4,10 +4,17 @@ import { useState, useEffect } from "react"
 import { Solicitud, solicitudesService } from "@/lib/services/solicitudesService"
 import { getTechnicians, type Technician } from "@/lib/services/scheduling-lite"
 import {
+<<<<<<< HEAD
   sugerirTecnicosParaSolicitud,
   obtenerVarianteBadgeCarga,
   obtenerTextoCarga,
   type TecnicoConCarga
+=======
+  suggestTechniciansForRequest,
+  getWorkloadBadgeVariant,
+  getWorkloadText,
+  type TechnicianWithWorkload
+>>>>>>> cfb3aaa04cfb21ad6e4cfbdd7f7fc2e42ce286e2
 } from "@/lib/services/technicianSuggestion"
 import {
   Dialog,
@@ -43,6 +50,7 @@ export function AssignTechnicianDialog({
   solicitud,
   onSuccess,
 }: AssignTechnicianDialogProps) {
+<<<<<<< HEAD
   const [tecnicos, setTecnicos] = useState<Technician[]>([])
   const [tecnicoSeleccionadoId, setTecnicoSeleccionadoId] = useState<string>("")
   const [cargando, setCargando] = useState(false)
@@ -50,6 +58,15 @@ export function AssignTechnicianDialog({
   const [sugerencias, setSugerencias] = useState<TecnicoConCarga[]>([])
   const [todosTecnicosConCarga, setTodosTecnicosConCarga] = useState<TecnicoConCarga[]>([])
   const [mejorOpcion, setMejorOpcion] = useState<TecnicoConCarga | null>(null)
+=======
+  const [technicians, setTechnicians] = useState<Technician[]>([])
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState<string>("")
+  const [loading, setLoading] = useState(false)
+  const [loadingTechnicians, setLoadingTechnicians] = useState(false)
+  const [suggestions, setSuggestions] = useState<TechnicianWithWorkload[]>([])
+  const [allTechniciansWithWorkload, setAllTechniciansWithWorkload] = useState<TechnicianWithWorkload[]>([])
+  const [topChoice, setTopChoice] = useState<TechnicianWithWorkload | null>(null)
+>>>>>>> cfb3aaa04cfb21ad6e4cfbdd7f7fc2e42ce286e2
   const { toast } = useToast()
 
   useEffect(() => {
@@ -69,6 +86,7 @@ export function AssignTechnicianDialog({
     try {
       const datos = await getTechnicians()
       // Filtrar solo técnicos activos
+<<<<<<< HEAD
       const tecnicosActivos = datos.filter((t) => t.is_active)
       setTecnicos(tecnicosActivos)
 
@@ -82,6 +100,21 @@ export function AssignTechnicianDialog({
         // Pre-seleccionar la mejor opción automáticamente
         if (resultado.mejorOpcion && !solicitud.tecnico_asignado_id) {
           setTecnicoSeleccionadoId(resultado.mejorOpcion.id)
+=======
+      const activeTechnicians = data.filter((t) => t.is_active)
+      setTechnicians(activeTechnicians)
+
+      // Obtener sugerencias automáticas si hay una solicitud
+      if (solicitud) {
+        const result = await suggestTechniciansForRequest(solicitud, activeTechnicians)
+        setSuggestions(result.suggestions)
+        setTopChoice(result.topChoice)
+        setAllTechniciansWithWorkload(result.allTechnicians)
+
+        // Pre-seleccionar la mejor opción automáticamente
+        if (result.topChoice && !solicitud.tecnico_asignado_id) {
+          setSelectedTechnicianId(result.topChoice.id)
+>>>>>>> cfb3aaa04cfb21ad6e4cfbdd7f7fc2e42ce286e2
         }
       }
     } catch (error) {
@@ -190,7 +223,11 @@ export function AssignTechnicianDialog({
             </div>
 
             {/* Sugerencias Automáticas */}
+<<<<<<< HEAD
             {!cargandoTecnicos && mejorOpcion && (
+=======
+            {!loadingTechnicians && topChoice && (
+>>>>>>> cfb3aaa04cfb21ad6e4cfbdd7f7fc2e42ce286e2
               <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/30 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -200,6 +237,7 @@ export function AssignTechnicianDialog({
                 </div>
 
                 <div className="space-y-2">
+<<<<<<< HEAD
                   {sugerencias.slice(0, 3).map((sugerencia, idx) => {
                     const estaSeleccionado = tecnicoSeleccionadoId === sugerencia.id
                     const esPrimero = idx === 0
@@ -210,12 +248,25 @@ export function AssignTechnicianDialog({
                         onClick={() => setTecnicoSeleccionadoId(sugerencia.id)}
                         className={`w-full text-left rounded-md p-3 transition-all ${
                           estaSeleccionado
+=======
+                  {suggestions.slice(0, 3).map((suggestion, idx) => {
+                    const isSelected = selectedTechnicianId === suggestion.id
+                    const isTop = idx === 0
+
+                    return (
+                      <button
+                        key={suggestion.id}
+                        onClick={() => setSelectedTechnicianId(suggestion.id)}
+                        className={`w-full text-left rounded-md p-3 transition-all ${
+                          isSelected
+>>>>>>> cfb3aaa04cfb21ad6e4cfbdd7f7fc2e42ce286e2
                             ? 'bg-blue-600 dark:bg-blue-600 text-white shadow-md'
                             : 'bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 flex-1">
+<<<<<<< HEAD
                             {esPrimero && (
                               <TrendingUp className={`h-4 w-4 ${estaSeleccionado ? 'text-white' : 'text-blue-600'}`} />
                             )}
@@ -223,15 +274,31 @@ export function AssignTechnicianDialog({
                               {sugerencia.name}
                             </span>
                             {estaSeleccionado && (
+=======
+                            {isTop && (
+                              <TrendingUp className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-blue-600'}`} />
+                            )}
+                            <span className={`font-medium ${isSelected ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                              {suggestion.name}
+                            </span>
+                            {isSelected && (
+>>>>>>> cfb3aaa04cfb21ad6e4cfbdd7f7fc2e42ce286e2
                               <CheckCircle2 className="h-4 w-4 text-white" />
                             )}
                           </div>
 
                           <div className="flex items-center gap-2">
+<<<<<<< HEAD
                             <Badge variant={obtenerVarianteBadgeCarga(sugerencia.trabajosActivos)} className="text-xs">
                               {obtenerTextoCarga(sugerencia.trabajosActivos)}
                             </Badge>
                             {sugerencia.habilidadesCoinciden && (
+=======
+                            <Badge variant={getWorkloadBadgeVariant(suggestion.activeJobs)} className="text-xs">
+                              {getWorkloadText(suggestion.activeJobs)}
+                            </Badge>
+                            {suggestion.matchingSkills && (
+>>>>>>> cfb3aaa04cfb21ad6e4cfbdd7f7fc2e42ce286e2
                               <Badge variant="default" className="bg-green-600 hover:bg-green-600 text-xs">
                                 Match
                               </Badge>
@@ -239,17 +306,28 @@ export function AssignTechnicianDialog({
                           </div>
                         </div>
 
+<<<<<<< HEAD
                         <p className={`text-xs mt-1 ${estaSeleccionado ? 'text-blue-100' : 'text-slate-600 dark:text-slate-400'}`}>
                           {sugerencia.razon} • Puntaje: {sugerencia.puntaje}/100
+=======
+                        <p className={`text-xs mt-1 ${isSelected ? 'text-blue-100' : 'text-slate-600 dark:text-slate-400'}`}>
+                          {suggestion.reason} • Score: {suggestion.score}/100
+>>>>>>> cfb3aaa04cfb21ad6e4cfbdd7f7fc2e42ce286e2
                         </p>
                       </button>
                     )
                   })}
                 </div>
 
+<<<<<<< HEAD
                 {sugerencias.length > 3 && (
                   <p className="text-xs text-center text-slate-600 dark:text-slate-400">
                     Mostrando top 3 de {sugerencias.length} técnicos
+=======
+                {suggestions.length > 3 && (
+                  <p className="text-xs text-center text-slate-600 dark:text-slate-400">
+                    Mostrando top 3 de {suggestions.length} técnicos
+>>>>>>> cfb3aaa04cfb21ad6e4cfbdd7f7fc2e42ce286e2
                   </p>
                 )}
               </div>
@@ -274,6 +352,7 @@ export function AssignTechnicianDialog({
                       {cargandoTecnicos ? "Cargando técnicos..." : "No hay técnicos disponibles"}
                     </div>
                   ) : (
+<<<<<<< HEAD
                     todosTecnicosConCarga.length > 0 ? (
                       todosTecnicosConCarga.map((tecnico) => (
                         <SelectItem key={tecnico.id} value={tecnico.id}>
@@ -284,18 +363,36 @@ export function AssignTechnicianDialog({
                             </div>
                             <div className="flex items-center gap-1">
                               {tecnico.habilidadesCoinciden && (
+=======
+                    allTechniciansWithWorkload.length > 0 ? (
+                      allTechniciansWithWorkload.map((tech) => (
+                        <SelectItem key={tech.id} value={tech.id}>
+                          <div className="flex items-center justify-between gap-3 w-full">
+                            <div className="flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              <span>{tech.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {tech.matchingSkills && (
+>>>>>>> cfb3aaa04cfb21ad6e4cfbdd7f7fc2e42ce286e2
                                 <Badge variant="outline" className="text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800">
                                   Match
                                 </Badge>
                               )}
+<<<<<<< HEAD
                               <Badge variant={obtenerVarianteBadgeCarga(tecnico.trabajosActivos)} className="text-xs">
                                 {tecnico.trabajosActivos}
+=======
+                              <Badge variant={getWorkloadBadgeVariant(tech.activeJobs)} className="text-xs">
+                                {tech.activeJobs}
+>>>>>>> cfb3aaa04cfb21ad6e4cfbdd7f7fc2e42ce286e2
                               </Badge>
                             </div>
                           </div>
                         </SelectItem>
                       ))
                     ) : (
+<<<<<<< HEAD
                       tecnicos.map((tecnico) => (
                         <SelectItem key={tecnico.id} value={tecnico.id}>
                           <div className="flex items-center gap-2">
@@ -304,6 +401,16 @@ export function AssignTechnicianDialog({
                             {tecnico.skills && tecnico.skills.length > 0 && (
                               <div className="ml-2 flex gap-1">
                                 {tecnico.skills.slice(0, 2).map((skill, idx) => (
+=======
+                      technicians.map((tech) => (
+                        <SelectItem key={tech.id} value={tech.id}>
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            <span>{tech.name}</span>
+                            {tech.skills && tech.skills.length > 0 && (
+                              <div className="ml-2 flex gap-1">
+                                {tech.skills.slice(0, 2).map((skill, idx) => (
+>>>>>>> cfb3aaa04cfb21ad6e4cfbdd7f7fc2e42ce286e2
                                   <Badge key={idx} variant="outline" className="text-xs">
                                     {skill}
                                   </Badge>
