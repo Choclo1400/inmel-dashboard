@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+/.pnp
+.pnp.js
 
 # next.js
 /.next/
@@ -16,8 +18,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files
+# local env files
 .env*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # vercel
 .vercel
@@ -25,3 +31,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# turbo
+.turbo
+
+# cache
+.cache
+.DS_Store
+*.local
+
+# backups - IMPORTANT: DO NOT ignore backups directory
+# Backups are stored in the repo for disaster recovery
+!backups/
+!backups/**/*.sql
+!backups/**/*.json
+!backups/**/*.md
+!backups/**/*.tar.gz

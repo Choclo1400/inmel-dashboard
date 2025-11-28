@@ -1,0 +1,196 @@
+name: Supabase Database Backup
+
+on:
+  # Automated daily schedule at 3:00 AM Chile Time (UTC-3 = 6:00 AM UTC)
+  schedule:
+    - cron: '0 6 * * *'  # Runs at 06:00 UTC = 3:00 AM Chile Time
+
+  # Allow manual triggering from GitHub UI
+  workflow_dispatch:
+    inputs:
+      backup_type:
+        description: 'Type of backup to perform'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - schema-only
+          - data-only
+
+jobs:
+  backup-database:
+    runs-on: ubuntu-latest
+
+    # Set timeout to prevent hanging workflows
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Create backup directory
+        run: |
+          mkdir -p backups/$(date +%Y-%m-%d)
+          echo "BACKUP_DIR=backups/$(date +%Y-%m-%d)" >> $GITHUB_ENV
+          echo "BACKUP_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+          echo "BACKUP_TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)" >> $GITHUB_ENV
+
+      - name: Backup Database Roles
+        run: |
+          supabase db dump \
+            --db-url "${{ secrets.SUPABASE_DB_URL }}" \
+            --role-only \
+            -f "${{ env.BACKUP_DIR }}/roles.sql"
+        continue-on-error: true
+
+      - name: Backup Database Schema
+        run: |
+          supabase db dump \
+            --db-url "${{ secrets.SUPABASE_DB_URL }}" \
+            --schema public \
+            --data-only=false \
+            -f "${{ env.BACKUP_DIR }}/schema.sql"
+
+      - name: Backup Database Data
+        run: |
+          supabase db dump \
+            --db-url "${{ secrets.SUPABASE_DB_URL }}" \
+            --schema public \
+            --data-only \
+            -f "${{ env.BACKUP_DIR }}/data.sql"
+
+      - name: Create backup metadata
+        run: |
+          cat > "${{ env.BACKUP_DIR }}/backup-info.json" <<EOF
+          {
+            "backup_date": "${{ env.BACKUP_DATE }}",
+            "backup_timestamp": "${{ env.BACKUP_TIMESTAMP }}",
+            "database_url": "https://rurggkctnsrvwodcpuvt.supabase.co",
+            "workflow_run_id": "${{ github.run_id }}",
+            "workflow_run_number": "${{ github.run_number }}",
+            "triggered_by": "${{ github.event_name }}",
+            "actor": "${{ github.actor }}",
+            "backup_type": "${{ github.event.inputs.backup_type || 'full' }}",
+            "tables": [
+              "profiles",
+              "solicitudes",
+              "clients",
+              "technicians",
+              "working_hours",
+              "bookings",
+              "time_off",
+              "services",
+              "comentarios",
+              "notifications"
+            ]
+          }
+          EOF
+
+      - name: Create README for backup
+        run: |
+          cat > "${{ env.BACKUP_DIR }}/README.md" <<'EOF'
+          # Database Backup - ${{ env.BACKUP_DATE }}
+
+          ## Backup Information
+          - **Date:** ${{ env.BACKUP_TIMESTAMP }}
+          - **Database:** rurggkctnsrvwodcpuvt.supabase.co
+          - **Triggered by:** ${{ github.event_name }}
+          - **Workflow Run:** [#${{ github.run_number }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          ## Files Included
+          - `roles.sql` - Database roles and permissions
+          - `schema.sql` - Table structures, RLS policies, triggers, functions
+          - `data.sql` - All table data
+          - `backup-info.json` - Metadata about this backup
+
+          ## How to Restore
+
+          See the main [RESTORE.md](../../RESTORE.md) guide in the backups directory.
+
+          ### Quick Restore Steps
+          1. Install Supabase CLI: `npm install -g supabase`
+          2. Restore roles: `psql $DB_URL -f roles.sql`
+          3. Restore schema: `psql $DB_URL -f schema.sql`
+          4. Restore data: `psql $DB_URL -f data.sql`
+
+          ## Tables Backed Up
+          - profiles
+          - solicitudes
+          - clients
+          - technicians
+          - working_hours
+          - bookings
+          - time_off
+          - services
+          - comentarios
+          - notifications
+          EOF
+
+      - name: Compress backup files
+        run: |
+          cd backups
+          tar -czf "${{ env.BACKUP_DATE }}.tar.gz" "${{ env.BACKUP_DATE }}"
+          echo "Backup compressed: $(ls -lh ${{ env.BACKUP_DATE }}.tar.gz)"
+
+      - name: Configure Git
+        run: |
+          git config --global user.name 'GitHub Actions Bot'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Commit backup files
+        run: |
+          git add backups/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: automated database backup - ${{ env.BACKUP_TIMESTAMP }}
+
+            Backup details:
+            - Date: ${{ env.BACKUP_DATE }}
+            - Timestamp: ${{ env.BACKUP_TIMESTAMP }}
+            - Triggered by: ${{ github.event_name }}
+            - Files: roles.sql, schema.sql, data.sql
+            - Tables: profiles, solicitudes, clients, technicians, working_hours, bookings, time_off, services, comentarios, notifications
+
+            🤖 Automated backup via GitHub Actions
+            Workflow: ${{ github.workflow }}
+            Run: ${{ github.run_number }}"
+            git push
+          fi
+
+      - name: Cleanup old backups (keep last 30 days)
+        run: |
+          # Find and remove backup directories older than 30 days
+          find backups -type d -name "20*" -mtime +30 -exec rm -rf {} + 2>/dev/null || true
+          # Find and remove compressed backups older than 30 days
+          find backups -type f -name "*.tar.gz" -mtime +30 -delete 2>/dev/null || true
+
+          # Commit cleanup if there were changes
+          git add backups/
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: cleanup backups older than 30 days"
+            git push
+          fi
+
+      - name: Upload backup artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-backup-${{ env.BACKUP_DATE }}
+          path: backups/${{ env.BACKUP_DATE }}.tar.gz
+          retention-days: 90
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Database backup failed!"
+          echo "Backup Date: ${{ env.BACKUP_DATE }}"
+          echo "Workflow Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
