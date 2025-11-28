@@ -9,7 +9,9 @@
       "Bash(if exist \"C:\\Users\\ferna\\Desktop\\inmel-dashboard\\components\\notifications\" rmdir \"C:\\Users\\ferna\\Desktop\\inmel-dashboard\\components\\notifications\")",
       "Bash(if not exist \"C:\\Users\\ferna\\Desktop\\inmel-dashboard\\types\" mkdir \"C:\\Users\\ferna\\Desktop\\inmel-dashboard\\types\")",
       "Bash(npm run build:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []
