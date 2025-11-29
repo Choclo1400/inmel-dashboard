@@ -8,7 +8,7 @@ const schema = z.object({
   nombre: z.string().min(1),
   apellido: z.string().min(1),
   telefono: z.string().optional().nullable(),
-  rol: z.enum(["ADMIN","SUPERVISOR","GESTOR","TECNICO","SYSTEM"]),
+  rol: z.enum(["Administrador","Supervisor","Gestor","Técnico","Empleado"]),
   activo: z.boolean().default(true),
 })
 
