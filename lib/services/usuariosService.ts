@@ -1,6 +1,6 @@
 import { createClient } from "../supabase/client"
 
-export type UserRole = "Empleado" | "Gestor" | "Supervisor" | "Administrador"
+export type UserRole = "Empleado" | "Técnico" | "Gestor" | "Supervisor" | "Administrador"
 
 export interface UserFilter {
   rol?: UserRole

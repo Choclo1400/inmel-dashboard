@@ -17,7 +17,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/use-toast"
 
 // Roles válidos según la base de datos
-type UserRole = "Administrador" | "Supervisor" | "Gestor" | "Empleado"
+type UserRole = "Administrador" | "Supervisor" | "Gestor" | "Técnico" | "Empleado"
 
 // Función para normalizar roles al formato de la BD
 const normalizeRole = (v: string): UserRole => {
@@ -31,9 +31,11 @@ const normalizeRole = (v: string): UserRole => {
     case "GESTOR":
     case "MANAGER":
       return "Gestor"
-    case "EMPLEADO":
+    case "TÉCNICO":
     case "TECNICO":
     case "TECHNICIAN":
+      return "Técnico"
+    case "EMPLEADO":
     case "OPERATOR":
       return "Empleado"
     default:
@@ -273,6 +275,7 @@ export default function UserFormDialog({ open, onOpenChange, user, onSuccess }: 
                   <SelectItem value="Administrador">Administrador</SelectItem>
                   <SelectItem value="Supervisor">Supervisor</SelectItem>
                   <SelectItem value="Gestor">Gestor</SelectItem>
+                  <SelectItem value="Técnico">Técnico</SelectItem>
                   <SelectItem value="Empleado">Empleado</SelectItem>
                 </SelectContent>
               </Select>
