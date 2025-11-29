@@ -11,7 +11,7 @@ const userSchema = z.object({
   nombre: z.string().min(1),
   apellido: z.string().min(1),
   telefono: z.string().optional().nullable(),
-  rol: z.enum(["ADMIN","SUPERVISOR","GESTOR","TECNICO","SYSTEM"]),
+  rol: z.enum(["Administrador","Supervisor","Gestor","Técnico","Empleado"]),
   activo: z.boolean().default(true),
 })
 
@@ -33,7 +33,7 @@ export async function createUserWithAuth(form: z.infer<typeof userSchema>): Prom
     }
 
     const { user, role } = await getCurrentUserAndRole()
-    if (!user || role !== "ADMIN") {
+    if (!user || role !== "Administrador") {
       return { data: null, error: { code: "FORBIDDEN", message: "Solo ADMIN puede crear usuarios" } }
     }
 
@@ -89,7 +89,7 @@ export async function createUserWithAuth(form: z.infer<typeof userSchema>): Prom
 export async function toggleUserActive(id: string, active: boolean): Promise<Result<null>> {
   try {
     const { user, role } = await getCurrentUserAndRole()
-    if (!user || role !== "ADMIN") {
+    if (!user || role !== "Administrador") {
       return { data: null, error: { code: "FORBIDDEN", message: "Solo ADMIN puede cambiar estado" } }
     }
     // TODO: La tabla profiles no tiene campo 'activo', necesita ser agregado al schema
