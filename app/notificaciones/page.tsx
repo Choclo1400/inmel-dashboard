@@ -20,7 +20,10 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import DashboardLayout from "@/components/layout/dashboard-layout"
-import { notificationService, type Notification } from "@/services/notificationService"
+import { notificationService } from "@/services/notificationService"
+import type { Notification } from "@/types/notifications"
+import { groupNotificationsByDate } from "@/types/notifications"
+import { NotificationCard } from "@/components/notifications/NotificationCard"
 import { createClient } from "@/lib/supabase/client"
 import { useToast } from "@/components/ui/use-toast"
 import { formatDistanceToNow } from "date-fns"
@@ -94,7 +97,7 @@ function NotificationsPageContent() {
     }
   }, [userId])
 
-  const unreadCount = notifications.filter((n) => !n.read).length
+  const unreadCount = notifications.filter((n) => !n.is_read).length
   const todayCount = notifications.filter((n) => {
     const notifDate = new Date(n.created_at)
     const today = new Date()
@@ -105,7 +108,7 @@ function NotificationsPageContent() {
     try {
       await notificationService.markAsRead(id)
       setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+        prev.map((n) => (n.id === id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n))
       )
     } catch (error) {
       console.error("Error marking as read:", error)
@@ -121,8 +124,8 @@ function NotificationsPageContent() {
     if (!userId) return
 
     try {
-      await notificationService.markAllAsRead(userId)
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+      await notificationService.markAllAsRead()
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true, read_at: new Date().toISOString() })))
       toast({
         title: "Éxito",
         description: "Todas las notificaciones marcadas como leídas",
@@ -139,13 +142,16 @@ function NotificationsPageContent() {
 
   const deleteNotification = async (id: string) => {
     try {
-      const supabase = createClient()
-      await supabase.from("notifications").delete().eq("id", id)
-      setNotifications((prev) => prev.filter((n) => n.id !== id))
-      toast({
-        title: "Éxito",
-        description: "Notificación eliminada",
-      })
+      const success = await notificationService.deleteNotification(id)
+      if (success) {
+        setNotifications((prev) => prev.filter((n) => n.id !== id))
+        toast({
+          title: "Éxito",
+          description: "Notificación eliminada",
+        })
+      } else {
+        throw new Error("No se pudo eliminar la notificación")
+      }
     } catch (error) {
       console.error("Error deleting notification:", error)
       toast({
@@ -320,99 +326,49 @@ function NotificationsPageContent() {
       </div>
 
       {/* Notifications List */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white">
+      <div>
+        <div className="mb-4">
+          <h2 className="text-xl font-semibold text-white">
             Lista de Notificaciones ({filteredNotifications.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {filteredNotifications.length === 0 ? (
-            <div className="p-8 text-center">
+          </h2>
+        </div>
+
+        {filteredNotifications.length === 0 ? (
+          <Card className="bg-slate-800 border-slate-700">
+            <CardContent className="p-8 text-center">
               <Bell className="w-12 h-12 text-slate-400 mx-auto mb-4" />
               <p className="text-slate-400">No hay notificaciones para mostrar</p>
-            </div>
-          ) : (
-            <div className="space-y-0">
-              {filteredNotifications.map((notification, index) => (
-                <div key={notification.id}>
-                  <div
-                    className={`p-4 sm:p-6 hover:bg-slate-700/50 transition-colors cursor-pointer ${
-                      !notification.is_read ? "bg-slate-700/30" : ""
-                    }`}
-                    onClick={() => handleNotificationClick(notification)}
-                  >
-                    <div className="flex items-start gap-3 sm:gap-4">
-                      <div className="flex-shrink-0 mt-1">
-                        {getNotificationIcon(notification.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2 sm:gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <h3
-                                className={`font-medium text-sm sm:text-base ${
-                                  !notification.is_read ? "text-white" : "text-slate-300"
-                                }`}
-                              >
-                                {notification.title}
-                              </h3>
-                              {!notification.is_read && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
-                              )}
-                            </div>
-                            <p className="text-slate-400 text-xs sm:text-sm mb-2 break-words">
-                              {notification.message}
-                            </p>
-                            <div className="flex items-center gap-2 sm:gap-4 text-xs text-slate-500 flex-wrap">
-                              <span>{getRelativeTime(notification.created_at)}</span>
-                              {notification.related_id && (
-                                <span className="flex items-center gap-1">
-                                  <FileText className="w-3 h-3" />
-                                  {notification.related_id}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex gap-1 sm:gap-2 flex-shrink-0">
-                            {!notification.is_read && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  markAsRead(notification.id)
-                                }}
-                                className="text-slate-400 hover:text-white h-8 w-8 p-0"
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                deleteNotification(notification.id)
-                              }}
-                              className="text-slate-400 hover:text-red-400 h-8 w-8 p-0"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-8">
+            {Object.entries(groupNotificationsByDate(filteredNotifications)).map(
+              ([dateLabel, notifs]) => (
+                <div key={dateLabel}>
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-slate-400" />
+                    {dateLabel}
+                    <Badge variant="secondary" className="ml-2">
+                      {notifs.length}
+                    </Badge>
+                  </h3>
+                  <div className="space-y-3">
+                    {notifs.map((notification) => (
+                      <NotificationCard
+                        key={notification.id}
+                        notification={notification}
+                        onMarkAsRead={markAsRead}
+                        onDelete={deleteNotification}
+                        onClick={handleNotificationClick}
+                      />
+                    ))}
                   </div>
-                  {index < filteredNotifications.length - 1 && (
-                    <Separator className="bg-slate-700" />
-                  )}
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              )
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Info Alert */}
       <Alert className="bg-blue-900/20 border-blue-700 mt-6">

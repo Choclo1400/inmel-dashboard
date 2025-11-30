@@ -33,17 +33,27 @@ export default function ProgramacionesPage() {
   const [realtimeConnected, setRealtimeConnected] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [preSelectedSolicitud, setPreSelectedSolicitud] = useState<Solicitud | null>(null)
+  const [highlightedBookingId, setHighlightedBookingId] = useState<string | null>(null)
   const { toast } = useToast()
   const searchParams = useSearchParams()
 
-  // Manejar parámetros de URL para navegación desde "Sin Programar"
+  // Manejar parámetros de URL para navegación desde notificaciones y "Sin Programar"
   useEffect(() => {
     const tabParam = searchParams.get('tab')
     const requestParam = searchParams.get('request')
+    const bookingParam = searchParams.get('booking')
 
     // Cambiar a la pestaña indicada
     if (tabParam && (tabParam === 'calendario' || tabParam === 'sin-programar')) {
       setActiveTab(tabParam)
+    }
+
+    // Si hay un booking a resaltar (desde notificaciones)
+    if (bookingParam) {
+      console.log('📅 [Programaciones] Resaltando booking desde notificación:', bookingParam)
+      setHighlightedBookingId(bookingParam)
+      // Asegurar que estamos en la pestaña de calendario
+      setActiveTab('calendario')
     }
 
     // Si hay una solicitud pre-seleccionada, cargarla
@@ -502,6 +512,7 @@ export default function ProgramacionesPage() {
               initialDate={searchParams.get('date') || undefined}
               preSelectedSolicitud={preSelectedSolicitud}
               preSelectedTechnicianId={searchParams.get('technician') || undefined}
+              highlightedBookingId={highlightedBookingId}
             />
           )}
         </TabsContent>

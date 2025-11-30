@@ -64,6 +64,7 @@ interface CalendarioTecnicoProps {
   initialDate?: string
   preSelectedSolicitud?: Solicitud | null
   preSelectedTechnicianId?: string
+  highlightedBookingId?: string | null
 }
 
 interface BookingFormData {
@@ -83,7 +84,8 @@ export function CalendarioTecnico({
   onBookingCreated,
   initialDate,
   preSelectedSolicitud,
-  preSelectedTechnicianId
+  preSelectedTechnicianId,
+  highlightedBookingId
 }: CalendarioTecnicoProps) {
   const [view, setView] = useState<View>('week')
   const [date, setDate] = useState(initialDate ? new Date(initialDate) : new Date())

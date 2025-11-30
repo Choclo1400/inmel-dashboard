@@ -216,18 +216,18 @@ export function getNotificationConfig(type: NotificationType): NotificationConfi
 export function getNotificationRoute(notification: Notification): string {
   const { type, booking_id, request_id } = notification;
 
-  // Si es de booking, navegar al calendario con el booking
+  // Si es de booking, navegar a programaciones con el booking
   if (type.startsWith('booking_') && booking_id) {
-    return `/dashboard/calendar?booking=${booking_id}`;
+    return `/programaciones?booking=${booking_id}`;
   }
 
-  // Si es de solicitud, navegar a solicitudes con la solicitud
+  // Si es de solicitud, navegar directamente a la página de detalle
   if (type.startsWith('request_') && request_id) {
-    return `/dashboard/solicitudes?request=${request_id}`;
+    return `/solicitudes/${request_id}`;
   }
 
-  // Por defecto, ir al calendario
-  return '/dashboard/calendar';
+  // Por defecto, ir a programaciones
+  return '/programaciones';
 }
 
 /**

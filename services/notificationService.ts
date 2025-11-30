@@ -453,6 +453,34 @@ class NotificationService {
       return [];
     }
   }
+
+  // =====================================================
+  // MÉTODOS DE COMPATIBILIDAD
+  // =====================================================
+
+  /**
+   * Obtener notificaciones por usuario (alias de compatibilidad)
+   * Usado por la página de notificaciones para mantener compatibilidad
+   * @param userId - ID del usuario
+   * @param unreadOnly - Si true, solo obtiene notificaciones no leídas
+   */
+  async getByUser(userId: string, unreadOnly: boolean = false): Promise<Notification[]> {
+    return this.getNotifications(50, unreadOnly);
+  }
+
+  /**
+   * Suscripción simplificada (wrapper de compatibilidad)
+   * Retorna función de cleanup para facilitar uso en componentes
+   * @param userId - ID del usuario
+   * @param onNotification - Callback cuando se recibe una notificación nueva
+   */
+  subscribeToUserNotifications(
+    userId: string,
+    onNotification: (notification: Notification) => void
+  ): () => void {
+    const channel = this.subscribeToNotifications(userId, onNotification);
+    return () => this.unsubscribeFromNotifications(channel);
+  }
 }
 
 // =====================================================
