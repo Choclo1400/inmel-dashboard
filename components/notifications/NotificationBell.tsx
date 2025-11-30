@@ -477,7 +477,7 @@ export default function NotificationBell() {
                 className="w-full text-sm"
                 onClick={() => {
                   setIsOpen(false);
-                  router.push('/dashboard/notificaciones');
+                  router.push('/notificaciones');
                 }}
               >
                 Ver todas las notificaciones
