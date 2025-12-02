@@ -211,6 +211,7 @@ export default function UsuariosPage() {
                 <SelectItem value="Supervisor">Supervisor</SelectItem>
                 <SelectItem value="Gestor">Gestor</SelectItem>
                 <SelectItem value="Empleado">Empleado</SelectItem>
+                <SelectItem value="Empleador">Empleador</SelectItem>
               </SelectContent>
             </Select>
           </div>

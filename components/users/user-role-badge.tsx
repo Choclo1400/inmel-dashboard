@@ -17,6 +17,8 @@ export default function UserRoleBadge({ role }: UserRoleBadgeProps) {
         return <Badge className="bg-orange-600 text-white hover:bg-orange-600">Técnico</Badge>
       case "Empleado":
         return <Badge className="bg-gray-600 text-white hover:bg-gray-600">Empleado</Badge>
+      case "Empleador":
+        return <Badge className="bg-orange-600 text-white hover:bg-orange-600">Empleador</Badge>
       default:
         return <Badge variant="secondary">{rol}</Badge>
     }

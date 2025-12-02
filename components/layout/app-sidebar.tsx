@@ -10,6 +10,16 @@ import { useRole } from "@/components/rbac/RoleProvider"
 
 type Props = { user: User }
 
+// Mapeo de roles internos (inglés) a roles para mostrar (español)
+const ROLE_DISPLAY: Record<string, string> = {
+  'admin': 'Administrador',
+  'supervisor': 'Supervisor',
+  'manager': 'Gestor',
+  'operator': 'Empleado',
+  'technician': 'Técnico',
+  'employer': 'Empleador',
+}
+
 export default function AppSidebar({ user }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -32,12 +42,15 @@ export default function AppSidebar({ user }: Props) {
   }, [role])
 
   const email = user?.email ?? ""
+  
+  // Obtener el nombre del rol en español para mostrar
+  const roleDisplay = role ? (ROLE_DISPLAY[role] || role) : ""
 
   return (
     <>
       <div className="p-4 border-b border-slate-700 flex flex-col justify-center h-[73px]">
         <div className="text-lg font-semibold leading-tight">Inmel</div>
-        <div className="text-sm text-slate-300 leading-tight mt-0.5">{role || email}</div>
+        <div className="text-sm text-slate-300 leading-tight mt-0.5">{roleDisplay || email}</div>
       </div>
 
       <nav className="p-4">
