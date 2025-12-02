@@ -128,8 +128,6 @@ export async function createUserWithAuth(
     const newId = created.user.id
 
     // 6. Insertar perfil en la base de datos
-    // NOTA: El campo 'activo' se omite porque no existe en la tabla profiles actual
-    // Para agregarlo, ejecuta: ALTER TABLE profiles ADD COLUMN activo BOOLEAN DEFAULT true;
     const { data: insertedProfile, error: insertError } = await service
       .from("profiles")
       .insert({
@@ -138,8 +136,8 @@ export async function createUserWithAuth(
         nombre: parsed.data.nombre,
         apellido: parsed.data.apellido,
         telefono: parsed.data.telefono ?? null,
-        rol: normalizedRol, // Usar rol normalizado
-        // activo: parsed.data.activo, // Comentado temporalmente hasta agregar columna
+        rol: normalizedRol,
+        activo: parsed.data.activo,  // ← DESCOMENTADO
       })
       .select("id")
       .single()
