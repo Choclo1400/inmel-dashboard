@@ -38,11 +38,16 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
   // Función para cargar el rol del usuario desde la base de datos
   const loadUserRole = async (userId: string) => {
     try {
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('rol')
         .eq('id', userId)
         .single()
+      
+      if (profileError) {
+        console.error('[dashboard-layout] Error fetching profile:', profileError)
+        return null
+      }
       
       const rol = (profileData as any)?.rol
       
@@ -70,6 +75,7 @@ export default function DashboardLayout({ children, title, subtitle }: Dashboard
     ;(async () => {
       try {
         const { data, error } = await supabase.auth.getUser()
+        
         if (error) throw error
 
         if (!data?.user) {
