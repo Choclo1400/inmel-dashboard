@@ -50,6 +50,8 @@ function NotificationsPageContent() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [filter, setFilter] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -66,6 +68,7 @@ function NotificationsPageContent() {
         setUserId(user.id)
         const data = await notificationService.getByUser(user.id, false)
         setNotifications(data)
+        setHasMore(data.length >= 50)
       } catch (error) {
         console.error("Error loading notifications:", error)
         toast({
@@ -159,6 +162,44 @@ function NotificationsPageContent() {
         description: "No se pudo eliminar la notificación",
         variant: "destructive",
       })
+    }
+  }
+
+  const loadMoreNotifications = async () => {
+    if (!userId || loadingMore || !hasMore) return
+
+    setLoadingMore(true)
+    try {
+      // Calcular offset basado en las notificaciones actuales
+      const currentCount = notifications.length
+
+      // Cargar más notificaciones con offset
+      const { data, error } = await notificationService['supabase']
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .range(currentCount, currentCount + 49)
+
+      if (error) throw error
+
+      const newNotifications = data as Notification[]
+      setNotifications((prev) => [...prev, ...newNotifications])
+      setHasMore(newNotifications.length >= 50)
+
+      toast({
+        title: "Notificaciones cargadas",
+        description: `Se cargaron ${newNotifications.length} notificaciones más`,
+      })
+    } catch (error) {
+      console.error("Error loading more notifications:", error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar más notificaciones",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingMore(false)
     }
   }
 
@@ -366,6 +407,30 @@ function NotificationsPageContent() {
                 </div>
               )
             )}
+          </div>
+        )}
+
+        {/* Botón Cargar Más */}
+        {filteredNotifications.length > 0 && hasMore && (
+          <div className="flex justify-center mt-6">
+            <Button
+              variant="outline"
+              onClick={loadMoreNotifications}
+              disabled={loadingMore}
+              className="border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700"
+            >
+              {loadingMore ? (
+                <>
+                  <Clock className="w-4 h-4 mr-2 animate-spin" />
+                  Cargando...
+                </>
+              ) : (
+                <>
+                  <Clock className="w-4 h-4 mr-2" />
+                  Cargar notificaciones anteriores
+                </>
+              )}
+            </Button>
           </div>
         )}
       </div>
