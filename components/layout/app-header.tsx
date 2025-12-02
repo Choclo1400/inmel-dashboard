@@ -4,6 +4,16 @@ import type { User } from "@supabase/supabase-js"
 import NotificationBell from "@/components/notifications/NotificationBell"
 import RefreshSessionButton from "./refresh-session-button"
 
+// Mapeo de roles internos (inglés) a roles para mostrar (español)
+const ROLE_DISPLAY: Record<string, string> = {
+  'admin': 'Administrador',
+  'supervisor': 'Supervisor',
+  'manager': 'Gestor',
+  'operator': 'Empleado',
+  'technician': 'Técnico',
+  'employer': 'Empleador',
+}
+
 interface AppHeaderProps {
   title: string
   subtitle?: string
@@ -11,7 +21,8 @@ interface AppHeaderProps {
 }
 
 export default function AppHeader({ title, subtitle, user }: AppHeaderProps) {
-  const role = (user as any)?.user_metadata?.rol ?? ""
+  const roleInternal = (user as any)?.user_metadata?.rol ?? ""
+  const roleDisplay = ROLE_DISPLAY[roleInternal] || roleInternal
   const name =
     ((user as any)?.user_metadata?.nombre
       ? `${(user as any).user_metadata.nombre} ${(user as any).user_metadata.apellido ?? ""}`
@@ -29,7 +40,7 @@ export default function AppHeader({ title, subtitle, user }: AppHeaderProps) {
         <NotificationBell />
         <div className="text-right hidden sm:flex sm:flex-col sm:justify-center">
           <div className="text-sm leading-tight">{name}</div>
-          <div className="text-xs text-slate-400 leading-tight mt-0.5">{role}</div>
+          <div className="text-xs text-slate-400 leading-tight mt-0.5">{roleDisplay}</div>
         </div>
       </div>
     </header>
