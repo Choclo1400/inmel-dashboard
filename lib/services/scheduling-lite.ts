@@ -289,21 +289,30 @@ export async function deleteBooking(id: string): Promise<void> {
 // UTILIDADES PARA DISPONIBILIDAD (Lógica en Cliente)
 // ============================================================================
 
+// Tipo de retorno mejorado para checkAvailability
+export interface AvailabilityResult {
+  available: boolean
+  reason?: 'out_of_hours' | 'conflict' | 'no_work_day'
+  message?: string
+}
+
 /**
  * Verifica si un técnico está disponible en un rango de tiempo
  * Sin Edge Functions - lógica simple en cliente
+ * Retorna un objeto con información detallada sobre la disponibilidad
  */
 export async function checkAvailability(
   technicianId: string,
   startTime: string,
   endTime: string,
   excludeBookingId?: string
-): Promise<boolean> {
+): Promise<AvailabilityResult> {
   try {
     // 1. Verificar horarios de trabajo
     const workingHours = await getWorkingHours(technicianId)
 
     const startDate = new Date(startTime)
+    const endDate = new Date(endTime)
     const dayOfWeek = startDate.getDay()
 
     const workingToday = workingHours.find(wh => wh.weekday === dayOfWeek)
@@ -312,14 +321,32 @@ export async function checkAvailability(
     if (workingHours.length === 0) {
       // Solo verificar conflictos, no horarios
     } else if (!workingToday) {
-      return false // No trabaja este día
+      return {
+        available: false,
+        reason: 'no_work_day',
+        message: 'El técnico no trabaja este día'
+      }
     } else {
       // 2. Verificar que esté dentro del horario configurado
       const startTimeStr = startDate.toTimeString().slice(0, 5) // HH:MM
-      const endTimeStr = new Date(endTime).toTimeString().slice(0, 5)
+      const endTimeStr = endDate.toTimeString().slice(0, 5)
 
-      if (startTimeStr < workingToday.start_time || endTimeStr > workingToday.end_time) {
-        return false // Fuera del horario de trabajo
+      // Validar que la hora de inicio esté dentro del horario
+      if (startTimeStr < workingToday.start_time) {
+        return {
+          available: false,
+          reason: 'out_of_hours',
+          message: `El horario de inicio (${startTimeStr}) es antes del horario laboral del técnico (${workingToday.start_time} - ${workingToday.end_time})`
+        }
+      }
+
+      // Validar que la hora de fin esté dentro del horario
+      if (endTimeStr > workingToday.end_time) {
+        return {
+          available: false,
+          reason: 'out_of_hours',
+          message: `El horario de fin (${endTimeStr}) excede el horario laboral del técnico (${workingToday.start_time} - ${workingToday.end_time})`
+        }
       }
     }
 
@@ -343,9 +370,21 @@ export async function checkAvailability(
     }
 
     const hasConflicts = conflicts && conflicts.length > 0
-    return !hasConflicts
+
+    if (hasConflicts) {
+      return {
+        available: false,
+        reason: 'conflict',
+        message: 'El técnico ya tiene otra programación en este horario'
+      }
+    }
+
+    return { available: true }
   } catch (error) {
-    return false
+    return {
+      available: false,
+      message: 'Error al verificar disponibilidad'
+    }
   }
 }
 
@@ -515,14 +554,15 @@ export async function createBookingFromSolicitud(
   }
 
   // 2. Verificar disponibilidad del técnico
-  const isAvailable = await checkAvailability(
+  const availabilityResult = await checkAvailability(
     technician.id,
     data.startTime,
     data.endTime
   )
 
-  if (!isAvailable) {
-    throw new Error('El técnico no está disponible en este horario. Por favor, selecciona otro horario.')
+  if (!availabilityResult.available) {
+    // Usar el mensaje específico según la razón
+    throw new Error(availabilityResult.message || 'El técnico no está disponible en este horario.')
   }
 
   // 3. Obtener usuario actual

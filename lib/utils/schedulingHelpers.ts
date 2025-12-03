@@ -28,13 +28,13 @@ export async function findAvailableTechnicians(
 
       const startISO = startDate.toISOString()
       const endISO = endDate.toISOString()
-      const isAvailable = await checkAvailability(tech.id, startISO, endISO)
+      const availabilityResult = await checkAvailability(tech.id, startISO, endISO)
 
       results.push({
         id: tech.id,
         name: tech.name,
         skills: tech.skills,
-        isAvailable,
+        isAvailable: availabilityResult.available,
       })
     }
 
