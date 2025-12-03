@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Plus, MoreHorizontal, Edit, User, Wrench, Clock, Calendar, Trash2, AlertCircle } from "lucide-react"
+import { Search, Plus, MoreHorizontal, Edit, User, Wrench, Clock, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,11 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import DashboardLayout from "@/components/layout/dashboard-layout"
 import { tecnicosService, type Technician, type TechnicianStats } from "@/lib/services/tecnicosService"
 import { useToast } from "@/components/ui/use-toast"
-import { getTechnicianWeekAvailability } from "@/lib/utils/schedulingHelpers"
 import TechnicianFormDialog from "@/components/technicians/technician-form-dialog"
 import TechnicianDeleteDialog from "@/components/technicians/technician-delete-dialog"
 import { TechniciansPermission } from "@/components/rbac/PermissionGuard"
@@ -33,12 +31,9 @@ export default function TecnicosPage() {
   const [stats, setStats] = useState<TechnicianStats>({ total: 0, activos: 0, inactivos: 0, porSkill: {} })
   const [isLoading, setIsLoading] = useState(true)
   const [selectedTechnician, setSelectedTechnician] = useState<Technician | null>(null)
-  const [showAvailabilityDialog, setShowAvailabilityDialog] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [weekAvailability, setWeekAvailability] = useState<any[]>([])
-  const [loadingAvailability, setLoadingAvailability] = useState(false)
   const { toast } = useToast()
 
   const loadTechnicians = async () => {
@@ -75,27 +70,6 @@ export default function TecnicosPage() {
 
     return matchesSearch && matchesStatus
   })
-
-  const handleViewAvailability = async (tech: Technician) => {
-    setSelectedTechnician(tech)
-    setShowAvailabilityDialog(true)
-    setLoadingAvailability(true)
-
-    try {
-      const weekStart = new Date()
-      const availability = await getTechnicianWeekAvailability(tech.id, weekStart)
-      setWeekAvailability(availability)
-    } catch (error) {
-      console.error("Error loading availability:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo cargar la disponibilidad",
-        variant: "destructive",
-      })
-    } finally {
-      setLoadingAvailability(false)
-    }
-  }
 
   const handleEdit = (tech: Technician) => {
     setSelectedTechnician(tech)
@@ -267,13 +241,6 @@ export default function TecnicosPage() {
                         <DropdownMenuContent className="bg-slate-700 border-slate-600">
                           <DropdownMenuItem
                             className="text-slate-300 hover:text-white hover:bg-slate-600"
-                            onClick={() => handleViewAvailability(tech)}
-                          >
-                            <Calendar className="w-4 h-4 mr-2" />
-                            Ver Disponibilidad
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-slate-300 hover:text-white hover:bg-slate-600"
                             onClick={() => handleEdit(tech)}
                           >
                             <Edit className="w-4 h-4 mr-2" />
@@ -299,65 +266,6 @@ export default function TecnicosPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Availability Dialog */}
-      <Dialog open={showAvailabilityDialog} onOpenChange={setShowAvailabilityDialog}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Disponibilidad de {selectedTechnician?.name}</DialogTitle>
-            <DialogDescription className="text-slate-400">Horarios disponibles esta semana</DialogDescription>
-          </DialogHeader>
-
-          {loadingAvailability ? (
-            <div className="text-center py-8 text-slate-400">Cargando disponibilidad...</div>
-          ) : weekAvailability.length === 0 || weekAvailability.every(day => day.availableSlots === 0 && day.slots.length === 0) ? (
-            <div className="text-center py-8">
-              <div className="bg-orange-950/30 border border-orange-800 rounded-lg p-6">
-                <AlertCircle className="h-12 w-12 text-orange-400 mx-auto mb-3" />
-                <h3 className="text-lg font-medium text-orange-300 mb-2">
-                  Sin Horarios Configurados
-                </h3>
-                <p className="text-sm text-orange-400/80 mb-4">
-                  Este técnico no tiene horarios de trabajo configurados. Se asignan automáticamente al crear un técnico nuevo (Lun-Vie 08:00-18:30).
-                </p>
-                <p className="text-xs text-slate-400">
-                  Si es un técnico existente, es posible que se haya creado antes de implementar la asignación automática de horarios.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {weekAvailability.map((day, idx) => (
-                <Card key={idx} className="bg-slate-700 border-slate-600">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h4 className="text-white font-medium capitalize">{day.dayName}</h4>
-                        <p className="text-slate-400 text-sm">{day.date}</p>
-                      </div>
-                      <Badge className={day.availableSlots > 0 ? "bg-green-600" : "bg-red-600"}>
-                        {day.availableSlots} slots disponibles
-                      </Badge>
-                    </div>
-                    {day.slots.length > 0 ? (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {day.slots.map((slot: any, slotIdx: number) => (
-                          <Badge key={slotIdx} variant="outline" className="text-xs border-green-600 text-green-400">
-                            <Clock className="w-3 h-3 mr-1" />
-                            {slot.start} - {slot.end}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-slate-400 text-sm mt-2">Todos los slots están ocupados</p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Create/Edit Dialog */}
       <TechnicianFormDialog

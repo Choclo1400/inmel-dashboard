@@ -39,19 +39,32 @@ export default function TechnicianFormDialog({ open, onOpenChange, technician, o
   const [loadingUsers, setLoadingUsers] = useState(false)
   const { toast } = useToast()
 
-  // Cargar usuarios disponibles (que tienen rol de técnico)
+  // Cargar usuarios disponibles (solo Empleadores que no sean técnicos)
   useEffect(() => {
     const loadUsers = async () => {
       setLoadingUsers(true)
       try {
-        const { data, error } = await supabaseBrowser
+        // Obtener usuarios con rol Empleador
+        const { data: profiles, error: profilesError } = await supabaseBrowser
           .from("profiles")
           .select("id, email, nombre, apellido, rol")
-          .in("rol", ["Empleado", "technician"])
+          .eq("rol", "Empleador")
           .order("nombre")
 
-        if (error) throw error
-        setUsers(data || [])
+        if (profilesError) throw profilesError
+
+        // Obtener técnicos existentes para excluirlos
+        const { data: existingTechnicians, error: techError } = await supabaseBrowser
+          .from("technicians")
+          .select("user_id")
+
+        if (techError) throw techError
+
+        // Filtrar usuarios que ya son técnicos
+        const existingTechnicianIds = new Set(existingTechnicians?.map(t => t.user_id) || [])
+        const availableUsers = profiles?.filter(user => !existingTechnicianIds.has(user.id)) || []
+
+        setUsers(availableUsers)
       } catch (error) {
         console.error("Error loading users:", error)
         toast({
@@ -133,6 +146,17 @@ export default function TechnicianFormDialog({ open, onOpenChange, technician, o
           return
         }
 
+        // Verificar que el usuario no sea técnico ya
+        const alreadyTechnician = await tecnicosService.existsByUserId(formData.user_id)
+        if (alreadyTechnician) {
+          toast({
+            title: "Error",
+            description: "Este usuario ya es un técnico",
+            variant: "destructive",
+          })
+          return
+        }
+
         await tecnicosService.create({
           user_id: formData.user_id,
           name: formData.name,
@@ -197,7 +221,7 @@ export default function TechnicianFormDialog({ open, onOpenChange, technician, o
                 </SelectContent>
               </Select>
               <p className="text-xs text-slate-400">
-                Solo se muestran usuarios con rol de Empleado/Técnico
+                Solo se muestran empleadores (clientes) que aún no son técnicos
               </p>
             </div>
           )}
@@ -259,19 +283,22 @@ export default function TechnicianFormDialog({ open, onOpenChange, technician, o
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="is_active">Estado</Label>
-            <Select 
-              value={formData.is_active ? "true" : "false"} 
+            <Label htmlFor="is_active">Estado del Técnico *</Label>
+            <Select
+              value={formData.is_active ? "true" : "false"}
               onValueChange={(value) => setFormData({ ...formData, is_active: value === "true" })}
             >
               <SelectTrigger className="bg-slate-700 border-slate-600">
-                <SelectValue placeholder="Estado" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-slate-700 border-slate-600">
-                <SelectItem value="true">Activo</SelectItem>
-                <SelectItem value="false">Inactivo</SelectItem>
+                <SelectItem value="true">✓ Activo - Disponible para asignaciones</SelectItem>
+                <SelectItem value="false">✗ Inactivo - No disponible</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-slate-400">
+              Los técnicos inactivos no aparecerán en las listas de asignación
+            </p>
           </div>
 
           <DialogFooter>
