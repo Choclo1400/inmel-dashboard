@@ -61,6 +61,7 @@ interface CalendarioTecnicoProps {
   onSelectEvent?: (event: Programacion) => void
   onSelectSlot?: (slotInfo: { start: Date; end: Date; resource?: string }) => void
   onBookingCreated?: () => void
+  onPreSelectedCleared?: () => void // Callback cuando se cierra el diálogo sin programar
   initialDate?: string
   preSelectedSolicitud?: Solicitud | null
   preSelectedTechnicianId?: string
@@ -82,6 +83,7 @@ export function CalendarioTecnico({
   onSelectEvent,
   onSelectSlot,
   onBookingCreated,
+  onPreSelectedCleared,
   initialDate,
   preSelectedSolicitud,
   preSelectedTechnicianId,
@@ -723,6 +725,10 @@ export function CalendarioTecnico({
         setDialogOpen(open)
         // Resetear cuando se cierra el diálogo (por cualquier medio)
         if (!open) {
+          // Si había una solicitud pre-seleccionada y se cierra sin programar, notificar al padre
+          if (currentSolicitud && onPreSelectedCleared) {
+            onPreSelectedCleared()
+          }
           resetForm()
         }
       }}>
@@ -935,6 +941,10 @@ export function CalendarioTecnico({
                 type="button"
                 variant="outline"
                 onClick={() => {
+                  // Si había una solicitud pre-seleccionada y se cancela, notificar al padre
+                  if (currentSolicitud && onPreSelectedCleared) {
+                    onPreSelectedCleared()
+                  }
                   setDialogOpen(false)
                   resetForm()
                 }}
