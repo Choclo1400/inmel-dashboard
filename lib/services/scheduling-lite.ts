@@ -13,12 +13,15 @@ const supabase = createBrowserClient(
 )
 
 // Tipos básicos para MVP
+export type TechnicianStatus = 'Disponible' | 'Ocupado' | 'En terreno'
+
 export interface Technician {
   id: string
   user_id?: string
   name: string
   skills: string[]
   is_active: boolean
+  estado?: TechnicianStatus // Estado de disponibilidad del técnico
   created_at?: string
   updated_at?: string
 }
@@ -72,9 +75,41 @@ export async function getTechnicians(): Promise<Technician[]> {
     name: t.nombre ?? t.name ?? 'Técnico',
     skills: t.skills ?? [],
     is_active: t.activo ?? t.is_active ?? true,
+    estado: t.estado ?? 'Disponible',
     created_at: t.created_at,
     updated_at: t.updated_at,
   }))
+}
+
+/**
+ * Actualiza el estado de disponibilidad de un técnico
+ */
+export async function updateTechnicianStatus(
+  technicianId: string,
+  estado: TechnicianStatus
+): Promise<Technician> {
+  const { data, error } = await supabase
+    .from('technicians')
+    .update({ estado })
+    .eq('id', technicianId)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(`Error al actualizar estado: ${error.message}`)
+  }
+
+  // Mapear respuesta
+  return {
+    id: data.id,
+    user_id: data.user_id,
+    name: data.nombre ?? data.name ?? 'Técnico',
+    skills: data.skills ?? [],
+    is_active: data.activo ?? data.is_active ?? true,
+    estado: data.estado ?? 'Disponible',
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+  }
 }
 
 export async function getTechnicianById(id: string): Promise<Technician | null> {
