@@ -96,6 +96,14 @@ export default function ProgramacionesPage() {
     loadData()
   }
 
+  // Limpiar solicitud pre-seleccionada cuando el usuario cierra el diálogo sin programar
+  const handlePreSelectedCleared = () => {
+    console.log('🚫 [Programaciones] Usuario cerró el diálogo sin programar, limpiando estado...')
+    setPreSelectedSolicitud(null)
+    // Limpiar URL parameters
+    window.history.replaceState({}, '', '/programaciones')
+  }
+
   // Cargar técnicos, bookings y solicitudes al montar
   useEffect(() => {
     loadData()
@@ -509,6 +517,7 @@ export default function ProgramacionesPage() {
                 console.log('Evento seleccionado:', event)
               }}
               onBookingCreated={preSelectedSolicitud ? handleBookingCreatedFromPreSelected : loadData}
+              onPreSelectedCleared={handlePreSelectedCleared}
               initialDate={searchParams.get('date') || undefined}
               preSelectedSolicitud={preSelectedSolicitud}
               preSelectedTechnicianId={searchParams.get('technician') || undefined}
