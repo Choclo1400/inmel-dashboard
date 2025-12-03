@@ -55,11 +55,23 @@ CREATE TRIGGER technicians_updated_at_trigger
 -- PASO 4: Políticas RLS para actualización de estado
 -- ============================================================================
 
--- Eliminar política antigua si existe
-DROP POLICY IF EXISTS "supervisors_update_technician_status" ON technicians;
+-- IMPORTANTE: Si tienes políticas conflictivas, ejecuta primero:
+-- fix-technician-permissions.sql
 
--- Crear política: Supervisores y Administradores pueden actualizar estado
-CREATE POLICY "supervisors_update_technician_status"
+-- Eliminar políticas antiguas si existen
+DROP POLICY IF EXISTS "supervisors_update_technician_status" ON technicians;
+DROP POLICY IF EXISTS "technicians_select_policy" ON technicians;
+DROP POLICY IF EXISTS "technicians_update_policy" ON technicians;
+
+-- POLÍTICA SELECT: Todos los usuarios autenticados pueden VER técnicos
+CREATE POLICY "technicians_select_policy"
+ON technicians
+FOR SELECT
+TO authenticated
+USING (true);
+
+-- POLÍTICA UPDATE: Solo Supervisores y Administradores pueden ACTUALIZAR técnicos
+CREATE POLICY "technicians_update_policy"
 ON technicians
 FOR UPDATE
 TO authenticated
