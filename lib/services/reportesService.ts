@@ -623,6 +623,75 @@ export class ReportesService {
   }
 
   /**
+   * Obtiene distribución por tipo de trabajo desde reportes_mensuales
+   */
+  async getTypeDataFromReportes(period: string = "month"): Promise<TypeData[]> {
+    console.log("📊 Consultando tipos de trabajo para período:", period)
+    const { startDate, limit } = this.getDateRangeForPeriod(period)
+    
+    const { data, error } = await this.supabase
+      .from("reportes_mensuales")
+      .select("*")
+      .gte("mes", startDate.toISOString().split('T')[0])
+      .order("mes", { ascending: false })
+      .limit(limit)
+
+    if (error || !data || data.length === 0) {
+      return this.getTypeDistribution()
+    }
+
+    // Sumar valores de todos los meses en el período
+    const totals = data.reduce((acc, r) => ({
+      instalacion: acc.instalacion + (Number(r.tipo_instalacion) || 0),
+      mantencion: acc.mantencion + (Number(r.tipo_mantencion) || 0),
+      reparacion: acc.reparacion + (Number(r.tipo_reparacion) || 0),
+      inspeccion: acc.inspeccion + (Number(r.tipo_inspeccion) || 0),
+    }), {
+      instalacion: 0, mantencion: 0, reparacion: 0, inspeccion: 0
+    })
+
+    const total = totals.instalacion + totals.mantencion + totals.reparacion + totals.inspeccion
+
+    if (total === 0) {
+      return this.getTypeDistribution()
+    }
+
+    return [
+      { type: "Instalación", count: totals.instalacion, percentage: Math.round((totals.instalacion / total) * 100) },
+      { type: "Mantención", count: totals.mantencion, percentage: Math.round((totals.mantencion / total) * 100) },
+      { type: "Reparación", count: totals.reparacion, percentage: Math.round((totals.reparacion / total) * 100) },
+      { type: "Inspección", count: totals.inspeccion, percentage: Math.round((totals.inspeccion / total) * 100) },
+    ].filter(t => t.count > 0).sort((a, b) => b.count - a.count)
+  }
+
+  /**
+   * Obtiene tendencia semanal/mensual desde reportes_mensuales
+   */
+  async getWeeklyDataFromReportes(period: string = "month"): Promise<WeeklyData[]> {
+    console.log("📈 Consultando tendencia para período:", period)
+    const { startDate, limit } = this.getDateRangeForPeriod(period)
+    
+    const { data, error } = await this.supabase
+      .from("reportes_mensuales")
+      .select("*")
+      .gte("mes", startDate.toISOString().split('T')[0])
+      .order("mes", { ascending: true })
+      .limit(limit)
+
+    if (error || !data || data.length === 0) {
+      return this.getWeeklyTrend()
+    }
+
+    // Convertir datos mensuales a formato de tendencia
+    return data.map(r => ({
+      week: `${r.mes_nombre.substring(0, 3)} ${r.año}`,
+      nuevas: Number(r.total_solicitudes) || 0,
+      completadas: Number(r.completadas) || 0,
+      vencidas: Number(r.solicitudes_retrasadas) || 0,
+    }))
+  }
+
+  /**
    * Exporta reporte mensual a CSV
    */
   async exportReporteMensualCSV(mesId?: string): Promise<Blob> {

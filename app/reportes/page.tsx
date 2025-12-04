@@ -56,8 +56,8 @@ export default function ReportesPage() {
         reportesService.getKPIsFromReportes(selectedPeriod),
         reportesService.getMonthlyDataFromReportes(selectedPeriod),
         reportesService.getStatusDataFromReportes(selectedPeriod),
-        reportesService.getTypeDistribution(),
-        reportesService.getWeeklyTrend(),
+        reportesService.getTypeDataFromReportes(selectedPeriod),
+        reportesService.getWeeklyDataFromReportes(selectedPeriod),
       ])
 
       setKpiData(kpis)
