@@ -190,7 +190,7 @@ function SolicitudesPageClient() {
           fetchSolicitudes()
         }
       )
-      .subscribe((status) => {
+      .subscribe((status: string) => {
         console.log('📡 [Solicitudes] Estado de suscripción:', status)
       })
 

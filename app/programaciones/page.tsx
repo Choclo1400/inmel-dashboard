@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Calendar as CalendarIcon, Plus, Filter, Users, Clock, CheckCircle2, CalendarClock, AlertCircle } from "lucide-react"
@@ -35,6 +35,7 @@ export default function ProgramacionesPage() {
   const [preSelectedSolicitud, setPreSelectedSolicitud] = useState<Solicitud | null>(null)
   const [highlightedBookingId, setHighlightedBookingId] = useState<string | null>(null)
   const [dismissedRequestId, setDismissedRequestId] = useState<string | null>(null) // Track dismissed request
+  const [unprogrammedRefreshTrigger, setUnprogrammedRefreshTrigger] = useState(0) // Para forzar recarga de lista sin programar
   const { toast } = useToast()
   const searchParams = useSearchParams()
 
@@ -95,6 +96,8 @@ export default function ProgramacionesPage() {
     // Limpiar URL parameters
     window.history.replaceState({}, '', '/programaciones')
     loadData()
+    // También forzar recarga en la lista de Sin Programar
+    setUnprogrammedRefreshTrigger(prev => prev + 1)
   }
 
   // Limpiar solicitud pre-seleccionada cuando el usuario cierra el diálogo sin programar
@@ -180,6 +183,8 @@ export default function ProgramacionesPage() {
               description: `${newBooking.title || 'Trabajo'} - Técnico: ${techName}`,
               duration: 5000,
             })
+            // Forzar recarga de la lista "Sin Programar" ya que una solicitud fue programada
+            setUnprogrammedRefreshTrigger(prev => prev + 1)
           } else if (payload.eventType === 'UPDATE') {
             const updatedBooking = payload.new
             toast({
@@ -401,7 +406,13 @@ export default function ProgramacionesPage() {
       </div>
 
       {/* Tabs de Calendario y Solicitudes sin Programar */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(tab) => {
+        setActiveTab(tab)
+        // Forzar recarga de "Sin Programar" cuando se cambia a ese tab
+        if (tab === 'sin-programar') {
+          setUnprogrammedRefreshTrigger(prev => prev + 1)
+        }
+      }} className="space-y-4">
         <TabsList>
           <TabsTrigger value="calendario" className="flex items-center gap-2">
             <CalendarIcon className="w-4 h-4" />
@@ -534,7 +545,7 @@ export default function ProgramacionesPage() {
 
         {/* Tab: Solicitudes Sin Programar */}
         <TabsContent value="sin-programar">
-          <UnprogrammedRequests />
+          <UnprogrammedRequests refreshTrigger={unprogrammedRefreshTrigger} />
         </TabsContent>
       </Tabs>
 

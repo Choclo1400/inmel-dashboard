@@ -75,10 +75,19 @@ const priorityConfig = {
 };
 
 // =====================================================
+// TIPOS DE PROPS
+// =====================================================
+
+interface UnprogrammedRequestsProps {
+  /** Prop para forzar recarga cuando cambia */
+  refreshTrigger?: number;
+}
+
+// =====================================================
 // COMPONENTE PRINCIPAL
 // =====================================================
 
-export default function UnprogrammedRequests() {
+export default function UnprogrammedRequests({ refreshTrigger }: UnprogrammedRequestsProps) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -159,6 +168,13 @@ export default function UnprogrammedRequests() {
     console.log('🟢 [MOUNTED] Componente montado');
   }, []);
 
+  // Efecto: Recargar cuando cambia refreshTrigger (cuando se cambia al tab)
+  useEffect(() => {
+    if (refreshTrigger !== undefined && refreshTrigger > 0) {
+      console.log('🔄 [REFRESH] refreshTrigger cambió:', refreshTrigger);
+      loadRequests();
+    }
+  }, [refreshTrigger]);
   // =====================================================
   // FUNCIONES DE CARGA DE DATOS
   // =====================================================
