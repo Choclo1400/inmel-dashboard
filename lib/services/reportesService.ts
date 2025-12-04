@@ -233,72 +233,84 @@ export class ReportesService {
    * Obtiene rendimiento del equipo
    */
   async getTeamPerformance(): Promise<TeamMember[]> {
-    const { data, error } = await this.supabase
-      .from("solicitudes")
-      .select(
-        `
-        tecnico_asignado_id,
-        estado,
-        created_at,
-        updated_at,
-        tecnico_asignado:profiles!solicitudes_tecnico_asignado_id_fkey(nombre, apellido)
-      `,
-      )
-      .not("tecnico_asignado_id", "is", null)
+    try {
+      // Primero obtener solicitudes con técnico asignado
+      const { data: solicitudes, error: solError } = await this.supabase
+        .from("solicitudes")
+        .select("tecnico_asignado_id, estado, created_at, updated_at")
+        .not("tecnico_asignado_id", "is", null)
 
-    if (error) {
-      console.error("Error fetching team performance:", error)
-      throw error
-    }
-
-    // Group by technician
-    const techMap = new Map<
-      string,
-      { name: string; completed: number; total: number; responseTimes: number[] }
-    >()
-
-    data.forEach((s: any) => {
-      if (!s.tecnico_asignado) return
-
-      const techId = s.tecnico_asignado_id
-      const techName = `${s.tecnico_asignado.nombre} ${s.tecnico_asignado.apellido}`
-
-      if (!techMap.has(techId)) {
-        techMap.set(techId, { name: techName, completed: 0, total: 0, responseTimes: [] })
+      if (solError || !solicitudes) {
+        console.error("Error fetching solicitudes for team:", solError)
+        return []
       }
 
-      const techData = techMap.get(techId)!
-      techData.total++
+      // Obtener los perfiles de los técnicos
+      const techIds = [...new Set(solicitudes.map(s => s.tecnico_asignado_id))]
+      
+      const { data: profiles, error: profError } = await this.supabase
+        .from("profiles")
+        .select("id, nombre, apellido")
+        .in("id", techIds)
 
-      if (s.estado === "Completada") {
-        techData.completed++
-        const created = new Date(s.created_at)
-        const updated = new Date(s.updated_at)
-        const days = (updated.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)
-        techData.responseTimes.push(days)
+      if (profError) {
+        console.error("Error fetching profiles:", profError)
+        return []
       }
-    })
 
-    // Convert to array format
-    const result: TeamMember[] = []
-    techMap.forEach((value) => {
-      const avgResponseTime =
-        value.responseTimes.length > 0
-          ? value.responseTimes.reduce((a, b) => a + b, 0) / value.responseTimes.length
-          : 0
+      // Crear mapa de perfiles
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || [])
 
-      const eficiencia = value.total > 0 ? (value.completed / value.total) * 100 : 0
+      // Group by technician
+      const techMap = new Map<string, { name: string; completed: number; total: number; responseTimes: number[] }>()
 
-      result.push({
-        name: value.name,
-        completadas: value.completed,
-        promedio: Math.round(avgResponseTime * 10) / 10,
-        eficiencia: Math.round(eficiencia),
+      solicitudes.forEach((s: any) => {
+        const profile = profileMap.get(s.tecnico_asignado_id)
+        if (!profile) return
+
+        const techId = s.tecnico_asignado_id
+        const techName = `${profile.nombre} ${profile.apellido}`
+
+        if (!techMap.has(techId)) {
+          techMap.set(techId, { name: techName, completed: 0, total: 0, responseTimes: [] })
+        }
+
+        const techData = techMap.get(techId)!
+        techData.total++
+
+        if (s.estado === "Completada") {
+          techData.completed++
+          const created = new Date(s.created_at)
+          const updated = new Date(s.updated_at)
+          const days = (updated.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)
+          techData.responseTimes.push(days)
+        }
       })
-    })
 
-    // Sort by completed (descending)
-    return result.sort((a, b) => b.completadas - a.completadas).slice(0, 10)
+      // Convert to array format
+      const result: TeamMember[] = []
+      techMap.forEach((value) => {
+        const avgResponseTime =
+          value.responseTimes.length > 0
+            ? value.responseTimes.reduce((a, b) => a + b, 0) / value.responseTimes.length
+            : 0
+
+        const eficiencia = value.total > 0 ? (value.completed / value.total) * 100 : 0
+
+        result.push({
+          name: value.name,
+          completadas: value.completed,
+          promedio: Math.round(avgResponseTime * 10) / 10,
+          eficiencia: Math.round(eficiencia),
+        })
+      })
+
+      // Sort by completed (descending)
+      return result.sort((a, b) => b.completadas - a.completadas).slice(0, 10)
+    } catch (error) {
+      console.error("Error in getTeamPerformance:", error)
+      return []
+    }
   }
 
   /**
