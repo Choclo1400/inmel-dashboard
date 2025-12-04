@@ -52,10 +52,11 @@ export const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     'tasks:assign', 'tasks:update', 'tasks:view_all'
   ],
 
-  // TÉCNICO: Acceso a solicitudes asignadas, actualizaciones
+  // TÉCNICO (Empleado): Solo visualización de solicitudes asignadas (técnicos de campo)
   technician: [
-    'requests:read', 'requests:update', // Solo las asignadas a él
-    'tasks:update', 'tasks:complete', 'tasks:view_own'
+    // Solo pueden ver solicitudes asignadas y hacer comentarios, no editar
+    'requests:read',
+    'tasks:view_own'
   ],
 
   // OPERADOR: Registro de clientes y solicitudes
@@ -65,10 +66,10 @@ export const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     'tasks:view_own'
   ],
 
-  // EMPLEADOR: Visualización y creación de sus propias solicitudes y lectura de clientes
+  // EMPLEADOR: Solo visualización de solicitudes asignadas (técnicos de campo)
   employer: [
-    'clients:read',
-    'requests:create', 'requests:read',
+    // Solo pueden ver solicitudes asignadas y hacer comentarios, no editar
+    'requests:read',
     'tasks:view_own'
   ],
 

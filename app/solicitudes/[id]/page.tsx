@@ -24,6 +24,7 @@ import Link from "next/link"
 import { solicitudesService, type Solicitud } from "@/lib/services/solicitudesService"
 import SolicitudTimeline from "@/components/solicitudes/solicitud-timeline"
 import { createClient } from "@/lib/supabase/client"
+import { usePermissions } from "@/hooks/use-permissions"
 
 const getStatusBadge = (estado: string) => {
   switch (estado) {
@@ -67,8 +68,12 @@ export default function SolicitudDetailPage() {
   const [userName, setUserName] = useState<string>("")
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const { toast } = useToast()
+  const { requests } = usePermissions()
 
   const id = Array.isArray(params.id) ? params.id[0] : params.id
+
+  // Verificar si el usuario puede editar solicitudes
+  const canUpdateRequest = requests.canUpdate()
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -167,14 +172,16 @@ export default function SolicitudDetailPage() {
               <p className="text-slate-400 text-sm">{solicitud.tipo_trabajo}</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Link href={`/solicitudes/${id}/editar`}>
-              <Button variant="outline" className="border-slate-600 text-slate-300 hover:text-white bg-transparent">
-                <Edit className="w-4 h-4 mr-2" />
-                Editar
-              </Button>
-            </Link>
-          </div>
+          {canUpdateRequest && (
+            <div className="flex gap-2">
+              <Link href={`/solicitudes/${id}/editar`}>
+                <Button variant="outline" className="border-slate-600 text-slate-300 hover:text-white bg-transparent">
+                  <Edit className="w-4 h-4 mr-2" />
+                  Editar
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
       </div>
 
@@ -229,35 +236,52 @@ export default function SolicitudDetailPage() {
             </Card>
 
             {/* Status Update */}
-            <Card className="bg-slate-800 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5" />
-                  Estado de la Solicitud
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <span className="text-slate-400">Estado actual:</span>
-                  {getStatusBadge(solicitud.estado)}
-                </div>
-                <div className="space-y-2">
-                  <p className="text-slate-400 text-sm">Cambiar estado:</p>
-                  <Select value={solicitud.estado} onValueChange={handleStatusChange} disabled={updatingStatus}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-700 border-slate-600">
-                      <SelectItem value="Pendiente">Pendiente</SelectItem>
-                      <SelectItem value="Aprobada">Aprobada</SelectItem>
-                      <SelectItem value="En Progreso">En Progreso</SelectItem>
-                      <SelectItem value="Completada">Completada</SelectItem>
-                      <SelectItem value="Rechazada">Rechazada</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
+            {canUpdateRequest ? (
+              <Card className="bg-slate-800 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5" />
+                    Estado de la Solicitud
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <span className="text-slate-400">Estado actual:</span>
+                    {getStatusBadge(solicitud.estado)}
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-slate-400 text-sm">Cambiar estado:</p>
+                    <Select value={solicitud.estado} onValueChange={handleStatusChange} disabled={updatingStatus}>
+                      <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-700 border-slate-600">
+                        <SelectItem value="Pendiente">Pendiente</SelectItem>
+                        <SelectItem value="Aprobada">Aprobada</SelectItem>
+                        <SelectItem value="En Progreso">En Progreso</SelectItem>
+                        <SelectItem value="Completada">Completada</SelectItem>
+                        <SelectItem value="Rechazada">Rechazada</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="bg-slate-800 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5" />
+                    Estado de la Solicitud
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <span className="text-slate-400">Estado actual:</span>
+                    {getStatusBadge(solicitud.estado)}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Timeline/Comments */}
             {userId && <SolicitudTimeline solicitudId={solicitud.id} userId={userId} userName={userName} />}

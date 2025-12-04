@@ -19,6 +19,7 @@ export async function getClientUserWithRole() {
   else if (raw === 'gestor') role = 'manager'
   else if (raw === 'técnico' || raw === 'tecnico') role = 'technician'
   else if (raw === 'empleado') role = 'operator'
+  else if (raw === 'empleador') role = 'employer'
   else if (raw === 'supervisor') role = 'supervisor'
 
   return { user, role, isActive: !!perfil }
