@@ -388,6 +388,163 @@ export class ReportesService {
 
     return new Blob([text], { type: "text/plain" })
   }
+
+  // ============================================================================
+  // MÉTODOS PARA REPORTES MENSUALES (TABLA reportes_mensuales)
+  // ============================================================================
+
+  /**
+   * Obtiene todos los reportes mensuales almacenados
+   */
+  async getReportesMensuales(): Promise<any[]> {
+    const { data, error } = await this.supabase
+      .from("reportes_mensuales")
+      .select("*")
+      .order("mes", { ascending: false })
+
+    if (error) {
+      console.error("Error fetching reportes mensuales:", error)
+      return []
+    }
+
+    return data || []
+  }
+
+  /**
+   * Obtiene KPIs desde la tabla de reportes mensuales
+   */
+  async getKPIsFromReportes(): Promise<KPIData> {
+    const { data, error } = await this.supabase
+      .from("reportes_mensuales")
+      .select("*")
+      .order("mes", { ascending: false })
+      .limit(2)
+
+    if (error || !data || data.length === 0) {
+      // Fallback a cálculo en tiempo real
+      return this.getKPIs()
+    }
+
+    const current = data[0]
+    const previous = data[1]
+
+    // Calcular tendencias comparando con mes anterior
+    const avgTimeTrend = previous 
+      ? current.tiempo_promedio_respuesta - previous.tiempo_promedio_respuesta 
+      : 0
+    const duplicityTrend = previous 
+      ? current.tasa_duplicidad - previous.tasa_duplicidad 
+      : 0
+    const delayedTrend = previous 
+      ? current.solicitudes_retrasadas - previous.solicitudes_retrasadas 
+      : 0
+    const efficiencyTrend = previous 
+      ? current.eficiencia_general - previous.eficiencia_general 
+      : 0
+
+    return {
+      avgResponseTime: current.tiempo_promedio_respuesta,
+      avgResponseTimeTrend: avgTimeTrend,
+      duplicityRate: current.tasa_duplicidad,
+      duplicityRateTrend: duplicityTrend,
+      delayedRequests: current.solicitudes_retrasadas,
+      delayedRequestsTrend: delayedTrend,
+      generalEfficiency: current.eficiencia_general,
+      generalEfficiencyTrend: efficiencyTrend,
+    }
+  }
+
+  /**
+   * Obtiene datos mensuales desde la tabla de reportes
+   */
+  async getMonthlyDataFromReportes(): Promise<MonthlyData[]> {
+    const { data, error } = await this.supabase
+      .from("reportes_mensuales")
+      .select("*")
+      .order("mes", { ascending: true })
+      .limit(12)
+
+    if (error || !data) {
+      return []
+    }
+
+    return data.map(r => ({
+      month: r.mes_nombre,
+      solicitudes: r.total_solicitudes,
+      completadas: r.completadas,
+      promedio: r.tiempo_promedio_respuesta
+    }))
+  }
+
+  /**
+   * Obtiene distribución por estado desde reportes
+   */
+  async getStatusDataFromReportes(): Promise<StatusData[]> {
+    const { data, error } = await this.supabase
+      .from("reportes_mensuales")
+      .select("*")
+      .order("mes", { ascending: false })
+      .limit(1)
+      .single()
+
+    if (error || !data) {
+      return this.getStatusDistribution()
+    }
+
+    return [
+      { name: "Pendiente", value: data.pendientes, color: "#f59e0b" },
+      { name: "Aprobada", value: data.aprobadas, color: "#06b6d4" },
+      { name: "Programada", value: data.programadas, color: "#8b5cf6" },
+      { name: "En Progreso", value: data.en_progreso, color: "#3b82f6" },
+      { name: "Completada", value: data.completadas, color: "#22c55e" },
+      { name: "Rechazada", value: data.rechazadas, color: "#ef4444" },
+    ]
+  }
+
+  /**
+   * Exporta reporte mensual a CSV
+   */
+  async exportReporteMensualCSV(mesId?: string): Promise<Blob> {
+    const { data, error } = await this.supabase
+      .from("reportes_mensuales")
+      .select("*")
+      .order("mes", { ascending: false })
+
+    if (error || !data) {
+      throw new Error("No se pudieron obtener los datos")
+    }
+
+    const headers = [
+      "Periodo",
+      "Total Solicitudes",
+      "Pendientes",
+      "Aprobadas", 
+      "Programadas",
+      "En Progreso",
+      "Completadas",
+      "Rechazadas",
+      "Tiempo Respuesta (días)",
+      "Tasa Duplicidad (%)",
+      "Eficiencia (%)"
+    ]
+
+    const rows = data.map(r => [
+      `${r.mes_nombre} ${r.año}`,
+      r.total_solicitudes,
+      r.pendientes,
+      r.aprobadas,
+      r.programadas,
+      r.en_progreso,
+      r.completadas,
+      r.rechazadas,
+      r.tiempo_promedio_respuesta,
+      r.tasa_duplicidad,
+      r.eficiencia_general
+    ])
+
+    const csv = [headers, ...rows].map(row => row.join(",")).join("\n")
+    return new Blob([csv], { type: "text/csv;charset=utf-8;" })
+  }
 }
 
 export const reportesService = new ReportesService()

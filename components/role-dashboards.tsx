@@ -1,11 +1,66 @@
+"use client"
+
 import { Card, CardContent } from "@/components/ui/card"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
-import { ClipboardList, CheckCircle, AlertTriangle, Clock, Users, Wrench, UserCheck, TrendingUp, FileText, Settings, MapPin, Calendar } from "lucide-react"
+import { ClipboardList, CheckCircle, AlertTriangle, Clock, Users, Wrench, UserCheck, TrendingUp, FileText, Settings, MapPin, Calendar, Loader2 } from "lucide-react"
+import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 
 // Dashboard específico para ADMINISTRADOR
 // Necesidades: Control total, configuración, reportes
 export function AdminDashboard() {
+  const [stats, setStats] = useState({
+    totalSolicitudes: 0,
+    usuariosActivos: 0,
+    solicitudesPendientes: 0,
+    tecnicosActivos: 0,
+    loading: true
+  })
+
+  useEffect(() => {
+    async function loadStats() {
+      const supabase = createClient()
+      
+      try {
+        // Contar total de solicitudes
+        const { count: totalSolicitudes } = await supabase
+          .from('solicitudes')
+          .select('*', { count: 'exact', head: true })
+
+        // Contar usuarios activos
+        const { count: usuariosActivos } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+
+        // Contar solicitudes pendientes
+        const { count: solicitudesPendientes } = await supabase
+          .from('solicitudes')
+          .select('*', { count: 'exact', head: true })
+          .eq('estado', 'Pendiente')
+
+        // Contar técnicos activos
+        const { count: tecnicosActivos } = await supabase
+          .from('technicians')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_active', true)
+
+        setStats({
+          totalSolicitudes: totalSolicitudes || 0,
+          usuariosActivos: usuariosActivos || 0,
+          solicitudesPendientes: solicitudesPendientes || 0,
+          tecnicosActivos: tecnicosActivos || 0,
+          loading: false
+        })
+      } catch (error) {
+        console.error('Error cargando estadísticas:', error)
+        setStats(prev => ({ ...prev, loading: false }))
+      }
+    }
+
+    loadStats()
+  }, [])
+
   return (
     <>
       <div className="mb-6">
@@ -20,8 +75,12 @@ export function AdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-blue-400 text-sm font-medium mb-1">Total Solicitudes</p>
-                <p className="text-3xl font-bold text-blue-400">145</p>
-                <p className="text-blue-400 text-xs mt-1">↗ 8% aumento</p>
+                {stats.loading ? (
+                  <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
+                ) : (
+                  <p className="text-3xl font-bold text-blue-400">{stats.totalSolicitudes}</p>
+                )}
+                <p className="text-blue-400 text-xs mt-1">En el sistema</p>
               </div>
               <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
                 <ClipboardList className="w-6 h-6 text-white" />
@@ -34,9 +93,13 @@ export function AdminDashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-400 text-sm font-medium mb-1">Usuarios Activos</p>
-                <p className="text-3xl font-bold text-green-400">47</p>
-                <p className="text-green-400 text-xs mt-1">↗ 12% aumento</p>
+                <p className="text-green-400 text-sm font-medium mb-1">Usuarios Registrados</p>
+                {stats.loading ? (
+                  <Loader2 className="w-6 h-6 text-green-400 animate-spin" />
+                ) : (
+                  <p className="text-3xl font-bold text-green-400">{stats.usuariosActivos}</p>
+                )}
+                <p className="text-green-400 text-xs mt-1">En el sistema</p>
               </div>
               <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
                 <Users className="w-6 h-6 text-white" />
@@ -49,12 +112,16 @@ export function AdminDashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-orange-400 text-sm font-medium mb-1">Ingresos Mes</p>
-                <p className="text-3xl font-bold text-orange-400">$2.4M</p>
-                <p className="text-orange-400 text-xs mt-1">↗ 18% aumento</p>
+                <p className="text-orange-400 text-sm font-medium mb-1">Pendientes</p>
+                {stats.loading ? (
+                  <Loader2 className="w-6 h-6 text-orange-400 animate-spin" />
+                ) : (
+                  <p className="text-3xl font-bold text-orange-400">{stats.solicitudesPendientes}</p>
+                )}
+                <p className="text-orange-400 text-xs mt-1">Por aprobar</p>
               </div>
               <div className="w-12 h-12 bg-orange-600 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-white" />
+                <Clock className="w-6 h-6 text-white" />
               </div>
             </div>
           </CardContent>
@@ -64,12 +131,16 @@ export function AdminDashboard() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-400 text-sm font-medium mb-1">Configuraciones</p>
-                <p className="text-3xl font-bold text-purple-400">12</p>
-                <p className="text-purple-400 text-xs mt-1">Activas</p>
+                <p className="text-purple-400 text-sm font-medium mb-1">Técnicos Activos</p>
+                {stats.loading ? (
+                  <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+                ) : (
+                  <p className="text-3xl font-bold text-purple-400">{stats.tecnicosActivos}</p>
+                )}
+                <p className="text-purple-400 text-xs mt-1">Disponibles</p>
               </div>
               <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center">
-                <Settings className="w-6 h-6 text-white" />
+                <UserCheck className="w-6 h-6 text-white" />
               </div>
             </div>
           </CardContent>
