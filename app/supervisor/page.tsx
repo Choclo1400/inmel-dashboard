@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { solicitudesService } from "@/lib/services/solicitudesService"
 import { SupervisorMetrics } from "@/components/supervisor/SupervisorMetrics"
 import { PendingRequestsList } from "@/components/supervisor/PendingRequestsList"
+import TechnicianStatusManager from "@/components/supervisor/TechnicianStatusManager"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ClipboardList, UserCog, Calendar, FileText } from "lucide-react"
@@ -80,6 +81,9 @@ export default async function SupervisorDashboardPage() {
 
         {/* Accesos rápidos */}
         <div className="space-y-4">
+          {/* Estado de Técnicos en Tiempo Real */}
+          <TechnicianStatusManager />
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

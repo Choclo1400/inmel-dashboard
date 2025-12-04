@@ -435,30 +435,6 @@ export default function NotificationBell() {
                       <p className="text-xs text-muted-foreground line-clamp-2">
                         {notification.message}
                       </p>
-
-                      {/* Acciones */}
-                      <div className="flex gap-1 mt-2">
-                        {!notification.is_read && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => handleMarkAsRead(notification.id, e)}
-                            className="h-7 text-xs"
-                          >
-                            <Check className="h-3 w-3 mr-1" />
-                            Marcar leída
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => handleDelete(notification.id, e)}
-                          className="h-7 text-xs text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          Eliminar
-                        </Button>
-                      </div>
                     </div>
                   </div>
                 );
@@ -468,23 +444,21 @@ export default function NotificationBell() {
         </ScrollArea>
 
         {/* Footer */}
-        {notifications.length > 0 && (
-          <>
-            <DropdownMenuSeparator />
-            <div className="p-2">
-              <Button
-                variant="ghost"
-                className="w-full text-sm"
-                onClick={() => {
-                  setIsOpen(false);
-                  router.push('/notificaciones');
-                }}
-              >
-                Ver todas las notificaciones
-              </Button>
-            </div>
-          </>
-        )}
+        <>
+          <DropdownMenuSeparator />
+          <div className="p-2">
+            <Button
+              variant="ghost"
+              className="w-full text-sm"
+              onClick={() => {
+                setIsOpen(false);
+                router.push('/notificaciones');
+              }}
+            >
+              Ver todas las notificaciones
+            </Button>
+          </div>
+        </>
       </DropdownMenuContent>
     </DropdownMenu>
   );

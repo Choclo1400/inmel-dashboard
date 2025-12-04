@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
-import { createBooking, updateBooking, deleteBooking, checkAvailability, getWorkingHours, type CreateBookingData, type WorkingHours } from '@/lib/services/scheduling-lite'
+import { createBooking, updateBooking, deleteBooking, checkAvailability, getWorkingHours, type CreateBookingData, type WorkingHours, type AvailabilityResult } from '@/lib/services/scheduling-lite'
 
 // Configurar moment en español
 moment.locale('es')
@@ -61,6 +61,7 @@ interface CalendarioTecnicoProps {
   onSelectEvent?: (event: Programacion) => void
   onSelectSlot?: (slotInfo: { start: Date; end: Date; resource?: string }) => void
   onBookingCreated?: () => void
+  onPreSelectedCleared?: () => void // Callback cuando se cierra el diálogo sin programar
   initialDate?: string
   preSelectedSolicitud?: Solicitud | null
   preSelectedTechnicianId?: string
@@ -82,6 +83,7 @@ export function CalendarioTecnico({
   onSelectEvent,
   onSelectSlot,
   onBookingCreated,
+  onPreSelectedCleared,
   initialDate,
   preSelectedSolicitud,
   preSelectedTechnicianId,
@@ -91,7 +93,7 @@ export function CalendarioTecnico({
   const [date, setDate] = useState(initialDate ? new Date(initialDate) : new Date())
   const [dialogOpen, setDialogOpen] = useState(false)
   const [validating, setValidating] = useState(false)
-  const [isAvailable, setIsAvailable] = useState<boolean | null>(null)
+  const [availabilityResult, setAvailabilityResult] = useState<AvailabilityResult | null>(null)
   const [horasInvalidas, setHorasInvalidas] = useState(false)
   const [editingEvent, setEditingEvent] = useState<Programacion | null>(null)
   const [technicianWorkingHours, setTechnicianWorkingHours] = useState<WorkingHours[]>([])
@@ -216,7 +218,7 @@ export function CalendarioTecnico({
     })
     setStartDate(undefined)
     setEndDate(undefined)
-    setIsAvailable(null)
+    setAvailabilityResult(null)
     setHorasInvalidas(false)
     setEditingEvent(null)
     setValidating(false)
@@ -241,20 +243,32 @@ export function CalendarioTecnico({
   // Validación automática de disponibilidad
   const validateAvailability = async (techId: string, start: string, end: string, excludeBookingId?: string) => {
     if (!techId || !start || !end) {
-      setIsAvailable(null)
+      setAvailabilityResult(null)
       return
     }
 
     setValidating(true)
     try {
       // Usar el excludeBookingId pasado como parámetro (más confiable que el estado)
-      const available = await checkAvailability(techId, start, end, excludeBookingId)
-      setIsAvailable(available)
+      const result = await checkAvailability(techId, start, end, excludeBookingId)
+      setAvailabilityResult(result)
 
-      if (!available) {
+      if (!result.available) {
+        // Mostrar mensaje específico según la razón
+        let title = "⚠️ No disponible"
+        let description = result.message || "El técnico no está disponible"
+
+        if (result.reason === 'out_of_hours') {
+          title = "⏰ Fuera del horario laboral"
+        } else if (result.reason === 'conflict') {
+          title = "⚠️ Conflicto de horario"
+        } else if (result.reason === 'no_work_day') {
+          title = "📅 Día no laboral"
+        }
+
         toast({
-          title: "⚠️ Conflicto de horario",
-          description: "El técnico ya tiene otra programación en ese horario",
+          title,
+          description,
           variant: "destructive"
         })
       } else {
@@ -264,7 +278,7 @@ export function CalendarioTecnico({
         })
       }
     } catch (error) {
-      setIsAvailable(null)
+      setAvailabilityResult(null)
     } finally {
       setValidating(false)
     }
@@ -303,7 +317,7 @@ export function CalendarioTecnico({
 
       if (startDate >= endDate) {
         setHorasInvalidas(true)
-        setIsAvailable(false)
+        setAvailabilityResult({ available: false })
         toast({
           title: "❌ Horas incorrectas",
           description: "La hora de inicio debe ser anterior a la hora de fin",
@@ -317,7 +331,7 @@ export function CalendarioTecnico({
         const now = new Date()
         if (startDate < now) {
           setHorasInvalidas(true)
-          setIsAvailable(false)
+          setAvailabilityResult({ available: false })
           toast({
             title: "❌ Fecha en el pasado",
             description: "No se pueden crear programaciones en el pasado. Selecciona una fecha/hora futura.",
@@ -339,7 +353,7 @@ export function CalendarioTecnico({
         excludeId
       )
     } else {
-      setIsAvailable(null)
+      setAvailabilityResult(null)
       setHorasInvalidas(false)
     }
   }
@@ -401,7 +415,7 @@ export function CalendarioTecnico({
     setEndDate(event.end)
 
     // Resetear validación
-    setIsAvailable(null)
+    setAvailabilityResult(null)
     setValidating(false)
     setHorasInvalidas(false)
 
@@ -519,10 +533,11 @@ export function CalendarioTecnico({
     }
 
     // VALIDACIÓN 5: Disponibilidad (solo bloquear si definitivamente NO está disponible)
-    if (isAvailable === false) {
+    if (availabilityResult?.available === false) {
+      const errorMessage = availabilityResult.message || 'El técnico no está disponible en ese horario'
       toast({
         title: 'No se puede guardar',
-        description: 'El técnico no está disponible en ese horario',
+        description: errorMessage,
         variant: 'destructive'
       })
       return
@@ -710,6 +725,10 @@ export function CalendarioTecnico({
         setDialogOpen(open)
         // Resetear cuando se cierra el diálogo (por cualquier medio)
         if (!open) {
+          // Si había una solicitud pre-seleccionada y se cierra sin programar, notificar al padre
+          if (currentSolicitud && onPreSelectedCleared) {
+            onPreSelectedCleared()
+          }
           resetForm()
         }
       }}>
@@ -875,17 +894,27 @@ export function CalendarioTecnico({
               </div>
             )}
 
-            {!validating && isAvailable === true && (
+            {!validating && availabilityResult?.available === true && (
               <div className="p-3 bg-green-600/10 rounded-lg flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-green-400" />
                 <p className="text-sm text-green-300">✅ Técnico disponible en este horario</p>
               </div>
             )}
 
-            {!validating && isAvailable === false && !horasInvalidas && (
+            {!validating && availabilityResult?.available === false && !horasInvalidas && (
               <div className="p-3 bg-red-600/10 rounded-lg flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 text-red-400" />
-                <p className="text-sm text-red-300">⚠️ Conflicto: El técnico ya tiene otra programación</p>
+                <div className="flex-1">
+                  <p className="text-sm text-red-300 font-medium">
+                    {availabilityResult.reason === 'out_of_hours' && '⏰ Fuera del horario laboral'}
+                    {availabilityResult.reason === 'conflict' && '⚠️ Conflicto: El técnico ya tiene otra programación'}
+                    {availabilityResult.reason === 'no_work_day' && '📅 El técnico no trabaja este día'}
+                    {!availabilityResult.reason && '⚠️ No disponible'}
+                  </p>
+                  {availabilityResult.message && (
+                    <p className="text-xs text-red-300/80 mt-1">{availabilityResult.message}</p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -912,6 +941,10 @@ export function CalendarioTecnico({
                 type="button"
                 variant="outline"
                 onClick={() => {
+                  // Si había una solicitud pre-seleccionada y se cancela, notificar al padre
+                  if (currentSolicitud && onPreSelectedCleared) {
+                    onPreSelectedCleared()
+                  }
                   setDialogOpen(false)
                   resetForm()
                 }}
@@ -922,7 +955,7 @@ export function CalendarioTecnico({
               <Button
                 type="submit"
                 className="flex-1"
-                disabled={isAvailable === false || horasInvalidas}
+                disabled={availabilityResult?.available === false || horasInvalidas}
               >
                 {validating ? 'Validando...' : editingEvent ? 'Guardar Cambios' : 'Crear Programación'}
               </Button>

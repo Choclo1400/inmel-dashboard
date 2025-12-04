@@ -30,15 +30,28 @@ export async function validateTechnicianSchedule(
     // Verificar disponibilidad
     const startISO = startDate.toISOString()
     const endISO = endDate.toISOString()
-    const isAvailable = await checkAvailability(technicianId, startISO, endISO)
+    const availabilityResult = await checkAvailability(technicianId, startISO, endISO)
 
-    if (!isAvailable) {
+    if (!availabilityResult.available) {
       result.isValid = false
-      result.conflicts.push("El técnico no está disponible en este horario")
+
+      // Usar el mensaje específico según la razón
+      if (availabilityResult.message) {
+        result.conflicts.push(availabilityResult.message)
+      } else if (availabilityResult.reason === 'out_of_hours') {
+        result.conflicts.push("El horario está fuera del horario laboral del técnico")
+      } else if (availabilityResult.reason === 'conflict') {
+        result.conflicts.push("El técnico ya tiene otra programación en este horario")
+      } else if (availabilityResult.reason === 'no_work_day') {
+        result.conflicts.push("El técnico no trabaja este día")
+      } else {
+        result.conflicts.push("El técnico no está disponible en este horario")
+      }
 
       // Obtener slots disponibles del mismo día
-      const daySlots = await getDayAvailableSlots(technicianId, startDate)
-      result.suggestions = daySlots.map((slot) => ({
+      const dateStr = startDate.toISOString().split('T')[0] // YYYY-MM-DD
+      const daySlots = await getDayAvailableSlots(technicianId, dateStr)
+      result.suggestions = daySlots.filter(slot => slot.available).map((slot) => ({
         start: slot.start,
         end: slot.end,
         available: true,
@@ -123,7 +136,8 @@ export function formatDateForDB(date: Date): string {
  */
 export async function getNextAvailableSlot(technicianId: string, preferredDate: Date): Promise<TimeSlot | null> {
   try {
-    const slots = await getDayAvailableSlots(technicianId, preferredDate)
+    const dateStr = preferredDate.toISOString().split('T')[0] // Convert to YYYY-MM-DD
+    const slots = await getDayAvailableSlots(technicianId, dateStr)
 
     if (slots.length > 0) {
       return {
@@ -141,7 +155,8 @@ export async function getNextAvailableSlot(technicianId: string, preferredDate: 
     let attempts = 0
     while (attempts < 7) {
       if (isBusinessHours(nextDay)) {
-        const nextSlots = await getDayAvailableSlots(technicianId, nextDay)
+        const nextDayStr = nextDay.toISOString().split('T')[0] // Convert to YYYY-MM-DD
+        const nextSlots = await getDayAvailableSlots(technicianId, nextDayStr)
         if (nextSlots.length > 0) {
           return {
             start: nextSlots[0].start,
