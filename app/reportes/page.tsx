@@ -47,16 +47,16 @@ export default function ReportesPage() {
   const [teamPerformance, setTeamPerformance] = useState<TeamMember[]>([])
   const [weeklyTrend, setWeeklyTrend] = useState<WeeklyData[]>([])
 
-  // Load all report data
+  // Load all report data - Usando datos de reportes_mensuales
   const loadReportData = async () => {
     try {
       setLoading(true)
-      const filters = { dateRange, period: selectedPeriod as any }
 
+      // Cargar datos desde la tabla reportes_mensuales
       const [kpis, monthly, status, types, team, weekly] = await Promise.all([
-        reportesService.getKPIs(filters),
-        reportesService.getMonthlyData(filters),
-        reportesService.getStatusDistribution(),
+        reportesService.getKPIsFromReportes(),
+        reportesService.getMonthlyDataFromReportes(),
+        reportesService.getStatusDataFromReportes(),
         reportesService.getTypeDistribution(),
         reportesService.getTeamPerformance(),
         reportesService.getWeeklyTrend(),
@@ -82,16 +82,16 @@ export default function ReportesPage() {
 
   useEffect(() => {
     loadReportData()
-  }, [dateRange, selectedPeriod])
+  }, []) // Solo cargar una vez al montar el componente
 
   const handleExport = async (format: "pdf" | "excel") => {
     try {
       setExporting(true)
-      const filters = { dateRange, period: selectedPeriod as any }
 
+      // Usar el nuevo método de exportación de reportes mensuales
       const blob = format === "excel"
-        ? await reportesService.exportToExcel(filters)
-        : await reportesService.exportToPDF(filters)
+        ? await reportesService.exportReporteMensualCSV()
+        : await reportesService.exportToPDF({ dateRange, period: selectedPeriod as any })
 
       // Download file
       const url = window.URL.createObjectURL(blob)
