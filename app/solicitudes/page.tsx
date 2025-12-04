@@ -73,10 +73,7 @@ function SolicitudesPageClient() {
   const [solicitudToSchedule, setSolicitudToSchedule] = useState<Solicitud | null>(null)
   const [bookingsMap, setBookingsMap] = useState<Record<string, boolean>>({}) // Map de solicitud_id → tiene booking
   const { toast } = useToast()
-  const { requests } = usePermissions()
-
-  // Verificar si el usuario puede editar solicitudes
-  const canUpdateRequest = requests.canUpdate()
+  const { role } = usePermissions()
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -316,6 +313,12 @@ function SolicitudesPageClient() {
   // Verificar si el usuario puede aprobar/rechazar solicitudes
   const canApprove = userRole === "Supervisor" || userRole === "Administrador"
 
+  // Verificar si el usuario puede editar solicitudes (todos excepto Empleado y Empleador)
+  const canEdit = role !== 'technician' && role !== 'employer'
+
+  // Verificar si puede crear solicitudes (todos excepto Empleado y Empleador)
+  const canCreate = role !== 'technician' && role !== 'employer'
+
   if (loading) {
     return (
       <DashboardLayout title="Solicitudes Técnicas" subtitle="Cargando...">
@@ -327,7 +330,7 @@ function SolicitudesPageClient() {
   return (
     <DashboardLayout title="Solicitudes de Servicio" subtitle="Gestión de solicitudes de mantenimiento eléctrico">
       {/* Action Button */}
-      {requests.canCreate() && (
+      {canCreate && (
         <div className="flex justify-end mb-6">
           <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowCreateDialog(true)}>
             <Plus className="w-4 h-4 mr-2" />
@@ -538,7 +541,7 @@ function SolicitudesPageClient() {
                               Ver Detalles
                             </DropdownMenuItem>
                           </Link>
-                          { canUpdateRequest && (
+                          { canEdit && (
                             <DropdownMenuItem
                               className="text-slate-300 hover:text-white hover:bg-slate-600"
                               onClick={() => handleEdit(solicitud)}
