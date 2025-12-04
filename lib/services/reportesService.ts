@@ -414,19 +414,26 @@ export class ReportesService {
    * Obtiene KPIs desde la tabla de reportes mensuales
    */
   async getKPIsFromReportes(): Promise<KPIData> {
+    console.log("🔍 Consultando reportes_mensuales...")
     const { data, error } = await this.supabase
       .from("reportes_mensuales")
       .select("*")
       .order("mes", { ascending: false })
       .limit(2)
 
+    console.log("📊 Datos recibidos:", data)
+    console.log("❌ Error:", error)
+
     if (error || !data || data.length === 0) {
+      console.log("⚠️ Fallback a getKPIs()")
       // Fallback a cálculo en tiempo real
       return this.getKPIs()
     }
 
     const current = data[0]
     const previous = data[1]
+    
+    console.log("✅ Usando datos de reportes_mensuales:", current.mes_nombre, current.eficiencia_general)
 
     // Calcular tendencias comparando con mes anterior
     const avgTimeTrend = previous 

@@ -1,12 +1,15 @@
 -- ============================================================================
--- TABLA DE REPORTES MENSUALES
--- Para almacenar datos históricos de reportes
+-- SCRIPT PARA ARREGLAR LA TABLA reportes_mensuales
+-- Ejecutar en el SQL Editor de Supabase
 -- ============================================================================
 
--- Crear tabla de reportes mensuales
-CREATE TABLE IF NOT EXISTS reportes_mensuales (
+-- PASO 1: Eliminar tabla existente si tiene problemas
+DROP TABLE IF EXISTS reportes_mensuales CASCADE;
+
+-- PASO 2: Crear tabla de reportes mensuales
+CREATE TABLE reportes_mensuales (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  mes DATE NOT NULL, -- Primer día del mes (2024-10-01)
+  mes DATE NOT NULL,
   año INTEGER NOT NULL,
   mes_numero INTEGER NOT NULL,
   mes_nombre TEXT NOT NULL,
@@ -21,10 +24,10 @@ CREATE TABLE IF NOT EXISTS reportes_mensuales (
   rechazadas INTEGER DEFAULT 0,
   
   -- Métricas de rendimiento
-  tiempo_promedio_respuesta NUMERIC(5,2) DEFAULT 0, -- días
-  tasa_duplicidad NUMERIC(5,2) DEFAULT 0, -- porcentaje
+  tiempo_promedio_respuesta NUMERIC(5,2) DEFAULT 0,
+  tasa_duplicidad NUMERIC(5,2) DEFAULT 0,
   solicitudes_retrasadas INTEGER DEFAULT 0,
-  eficiencia_general NUMERIC(5,2) DEFAULT 0, -- porcentaje
+  eficiencia_general NUMERIC(5,2) DEFAULT 0,
   
   -- Distribución por prioridad
   prioridad_critica INTEGER DEFAULT 0,
@@ -32,7 +35,7 @@ CREATE TABLE IF NOT EXISTS reportes_mensuales (
   prioridad_media INTEGER DEFAULT 0,
   prioridad_baja INTEGER DEFAULT 0,
   
-  -- Distribución por tipo de trabajo
+  -- Distribución por tipo
   tipo_instalacion INTEGER DEFAULT 0,
   tipo_mantencion INTEGER DEFAULT 0,
   tipo_reparacion INTEGER DEFAULT 0,
@@ -42,40 +45,17 @@ CREATE TABLE IF NOT EXISTS reportes_mensuales (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Índice para búsquedas por mes
-CREATE INDEX IF NOT EXISTS idx_reportes_mes ON reportes_mensuales(mes);
-CREATE INDEX IF NOT EXISTS idx_reportes_año_mes ON reportes_mensuales(año, mes_numero);
-
--- ============================================================================
--- HABILITAR RLS Y CREAR POLÍTICAS
--- ============================================================================
+-- PASO 3: Habilitar RLS
 ALTER TABLE reportes_mensuales ENABLE ROW LEVEL SECURITY;
 
--- Política para permitir lectura a todos los usuarios autenticados
-DROP POLICY IF EXISTS "Permitir lectura de reportes a usuarios autenticados" ON reportes_mensuales;
-CREATE POLICY "Permitir lectura de reportes a usuarios autenticados"
+-- PASO 4: Crear política de lectura para TODOS los usuarios autenticados
+CREATE POLICY "reportes_select_policy"
   ON reportes_mensuales
   FOR SELECT
   TO authenticated
   USING (true);
 
--- Política para permitir inserción solo a admins
-DROP POLICY IF EXISTS "Permitir inserción de reportes a admins" ON reportes_mensuales;
-CREATE POLICY "Permitir inserción de reportes a admins"
-  ON reportes_mensuales
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.rol IN ('admin', 'manager')
-    )
-  );
-
--- ============================================================================
--- INSERTAR DATOS DE OCTUBRE 2024
--- ============================================================================
+-- PASO 5: Insertar datos de prueba - Octubre 2024
 INSERT INTO reportes_mensuales (
   mes, año, mes_numero, mes_nombre,
   total_solicitudes, pendientes, aprobadas, programadas, en_progreso, completadas, rechazadas,
@@ -90,9 +70,7 @@ INSERT INTO reportes_mensuales (
   8, 10, 9, 3
 );
 
--- ============================================================================
--- INSERTAR DATOS DE NOVIEMBRE 2024
--- ============================================================================
+-- PASO 6: Insertar datos de prueba - Noviembre 2024
 INSERT INTO reportes_mensuales (
   mes, año, mes_numero, mes_nombre,
   total_solicitudes, pendientes, aprobadas, programadas, en_progreso, completadas, rechazadas,
@@ -107,20 +85,11 @@ INSERT INTO reportes_mensuales (
   9, 12, 10, 4
 );
 
--- ============================================================================
--- VERIFICAR DATOS INSERTADOS
--- ============================================================================
+-- PASO 7: Verificar que los datos se insertaron correctamente
 SELECT 
   mes_nombre || ' ' || año as periodo,
   total_solicitudes,
-  pendientes,
-  aprobadas,
-  programadas,
-  en_progreso,
-  completadas,
-  rechazadas,
-  tiempo_promedio_respuesta || ' días' as tiempo_respuesta,
-  tasa_duplicidad || '%' as duplicidad,
-  eficiencia_general || '%' as eficiencia
+  eficiencia_general || '%' as eficiencia,
+  tiempo_promedio_respuesta || ' días' as tiempo_respuesta
 FROM reportes_mensuales
 ORDER BY mes;
