@@ -28,7 +28,7 @@ import {
   Area,
 } from "recharts"
 import type { DateRange } from "react-day-picker"
-import { reportesService, type KPIData, type MonthlyData, type StatusData, type TypeData, type TeamMember, type WeeklyData } from "@/lib/services/reportesService"
+import { reportesService, type KPIData, type MonthlyData, type StatusData, type TypeData, type WeeklyData } from "@/lib/services/reportesService"
 import { useToast } from "@/components/ui/use-toast"
 
 export default function ReportesPage() {
@@ -44,7 +44,6 @@ export default function ReportesPage() {
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([])
   const [statusData, setStatusData] = useState<StatusData[]>([])
   const [typeData, setTypeData] = useState<TypeData[]>([])
-  const [teamPerformance, setTeamPerformance] = useState<TeamMember[]>([])
   const [weeklyTrend, setWeeklyTrend] = useState<WeeklyData[]>([])
 
   // Load all report data - Usando datos de reportes_mensuales
@@ -53,12 +52,11 @@ export default function ReportesPage() {
       setLoading(true)
 
       // Cargar datos desde la tabla reportes_mensuales con el período seleccionado
-      const [kpis, monthly, status, types, team, weekly] = await Promise.all([
+      const [kpis, monthly, status, types, weekly] = await Promise.all([
         reportesService.getKPIsFromReportes(selectedPeriod),
         reportesService.getMonthlyDataFromReportes(selectedPeriod),
         reportesService.getStatusDataFromReportes(selectedPeriod),
         reportesService.getTypeDistribution(),
-        reportesService.getTeamPerformance(),
         reportesService.getWeeklyTrend(),
       ])
 
@@ -66,7 +64,6 @@ export default function ReportesPage() {
       setMonthlyData(monthly)
       setStatusData(status)
       setTypeData(types)
-      setTeamPerformance(team)
       setWeeklyTrend(weekly)
     } catch (error) {
       console.error("Error loading report data:", error)
@@ -190,9 +187,6 @@ export default function ReportesPage() {
             </TabsTrigger>
             <TabsTrigger value="performance" className="data-[state=active]:bg-blue-600">
               Rendimiento
-            </TabsTrigger>
-            <TabsTrigger value="team" className="data-[state=active]:bg-blue-600">
-              Equipo
             </TabsTrigger>
             <TabsTrigger value="trends" className="data-[state=active]:bg-blue-600">
               Tendencias
@@ -449,45 +443,6 @@ export default function ReportesPage() {
                     <Bar dataKey="vencidas" fill="#ef4444" />
                   </BarChart>
                 </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="team" className="space-y-6">
-            {/* Team Performance Table */}
-            <Card className="bg-slate-800 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white">Rendimiento del Equipo</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {teamPerformance.map((member, index) => (
-                    <div key={member.name} className="bg-slate-700 p-4 rounded-lg">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium text-sm">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <h3 className="text-white font-medium">{member.name}</h3>
-                            <p className="text-slate-400 text-sm">{member.completadas} solicitudes completadas</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-white font-medium">{member.eficiencia}% eficiencia</p>
-                          <p className="text-slate-400 text-sm">{member.promedio} días promedio</p>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-400">Eficiencia</span>
-                          <span className="text-white">{member.eficiencia}%</span>
-                        </div>
-                        <Progress value={member.eficiencia} className="h-2" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
