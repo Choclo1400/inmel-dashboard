@@ -44,6 +44,7 @@ export default async function DashboardPage() {
       case 'technician':
         return <TechniciansWelcome />
       case 'operator':
+      case 'employer':
         return <EmployeeWelcome />
       default:
         return (

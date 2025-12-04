@@ -59,16 +59,16 @@ export const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     'tasks:view_own'
   ],
 
-  // OPERADOR: Registro de clientes y solicitudes
+  // OPERADOR (Empleado): Solo visualización de solicitudes asignadas (técnicos de campo)
   operator: [
-    // Permisos mínimos: solo gestionar sus propias solicitudes (creación y lectura)
-    'requests:create', 'requests:read',
+    // Solo pueden ver solicitudes asignadas y hacer comentarios, no editar (igual que employer)
+    'requests:read',
     'tasks:view_own'
   ],
 
-  // EMPLEADOR: Solo visualización de solicitudes asignadas (técnicos de campo)
+  // EMPLEADOR (Cliente): Solo visualización de solicitudes asignadas (técnicos de campo)
   employer: [
-    // Solo pueden ver solicitudes asignadas y hacer comentarios, no editar
+    // Solo pueden ver solicitudes asignadas y hacer comentarios, no editar (igual que operator)
     'requests:read',
     'tasks:view_own'
   ],

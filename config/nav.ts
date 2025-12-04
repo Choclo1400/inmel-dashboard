@@ -10,16 +10,13 @@ export const NAV_ITEMS: Array<{
   { id: 'tecnicos',        label: 'Técnicos',        href: '/tecnicos',        roles: ['admin', 'supervisor'] },
   
   // MANAGER: Dashboards, asignaciones, aprobaciones
-  { id: 'solicitudes',     label: 'Solicitudes',     href: '/solicitudes',     roles: ['admin', 'supervisor', 'manager', 'operator'] },
+  { id: 'solicitudes',     label: 'Solicitudes',     href: '/solicitudes',     roles: ['admin', 'supervisor', 'manager', 'operator', 'employer'] },
   { id: 'aprobaciones',    label: 'Aprobaciones',    href: '/aprobaciones',    roles: ['admin', 'manager'] },
   { id: 'programaciones',  label: 'Programaciones',  href: '/programaciones',  roles: ['admin', 'manager'] },
   { id: 'reportes',        label: 'Reportes',        href: '/reportes',        roles: ['admin', 'manager'] },
   
   // TÉCNICO: Tareas asignadas y actualizaciones
   { id: 'mis-tareas',      label: 'Mis Tareas',      href: '/mis-tareas',      roles: ['technician'] },
-
-  // EMPLEADOR: Visualización y creación de solicitudes propias
-  { id: 'empleador',       label: 'Empleador',       href: '/empleador',       roles: ['employer'] },
 
   // ADMINISTRADOR EXCLUSIVO: Configuración del sistema
   { id: 'usuarios',        label: 'Usuarios',        href: '/usuarios',        roles: ['admin'] },
@@ -46,7 +43,7 @@ const ROLE_HOME: Record<AppRole, string> = {
   supervisor: '/dashboard',   // Seguimiento de tareas - Dashboard
   technician: '/mis-tareas',  // Acceso directo a tareas asignadas
   operator: '/solicitudes',   // Empleado: seguimiento y creación de sus solicitudes
-  employer: '/empleador',     // Vista específica para empleador
+  employer: '/solicitudes',   // Empleador: misma vista que empleado (solo ver y comentar)
   system: '/auth/login',
 }
 

@@ -257,8 +257,8 @@ export function TechniciansWelcome() {
   )
 }
 
-// Vista específica para EMPLEADO (rol interno 'operator')
-// Necesidades: Crear y seguir solo sus propias solicitudes (sin gestión de clientes)
+// Vista específica para EMPLEADO y EMPLEADOR (roles internos 'operator' y 'employer')
+// Necesidades: Ver y seguir solo sus solicitudes asignadas, pueden hacer comentarios (sin editar)
 export function EmployeeWelcome() {
   return (
     <>
