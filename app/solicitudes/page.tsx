@@ -20,6 +20,7 @@ import { createClient } from "@/lib/supabase/client"
 import SolicitudFormDialog from "@/components/solicitudes/solicitud-form-dialog"
 import { ScheduleBookingDialog } from "@/components/solicitudes/schedule-booking-dialog"
 import { getBookingsBySolicitudId } from "@/lib/services/scheduling-lite"
+import { usePermissions } from "@/hooks/use-permissions"
 
 const getStatusBadge = (estado: string) => {
   switch (estado) {
@@ -72,6 +73,10 @@ function SolicitudesPageClient() {
   const [solicitudToSchedule, setSolicitudToSchedule] = useState<Solicitud | null>(null)
   const [bookingsMap, setBookingsMap] = useState<Record<string, boolean>>({}) // Map de solicitud_id → tiene booking
   const { toast } = useToast()
+  const { requests } = usePermissions()
+
+  // Verificar si el usuario puede editar solicitudes
+  const canUpdateRequest = requests.canUpdate()
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -322,12 +327,14 @@ function SolicitudesPageClient() {
   return (
     <DashboardLayout title="Solicitudes de Servicio" subtitle="Gestión de solicitudes de mantenimiento eléctrico">
       {/* Action Button */}
-      <div className="flex justify-end mb-6">
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowCreateDialog(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nueva Solicitud
-        </Button>
-      </div>
+      {requests.canCreate() && (
+        <div className="flex justify-end mb-6">
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowCreateDialog(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Nueva Solicitud
+          </Button>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-5 gap-6 mb-8">
@@ -531,7 +538,7 @@ function SolicitudesPageClient() {
                               Ver Detalles
                             </DropdownMenuItem>
                           </Link>
-                          { (solicitud.creado_por === userId || canApprove) && (
+                          { canUpdateRequest && (
                             <DropdownMenuItem
                               className="text-slate-300 hover:text-white hover:bg-slate-600"
                               onClick={() => handleEdit(solicitud)}
