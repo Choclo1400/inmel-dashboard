@@ -209,6 +209,9 @@ function SolicitudesPageClient() {
       solicitud.numero_solicitud.toLowerCase().includes(lowerSearchTerm) ||
       solicitud.direccion.toLowerCase().includes(lowerSearchTerm) ||
       solicitud.descripcion.toLowerCase().includes(lowerSearchTerm) ||
+      solicitud.tipo_trabajo.toLowerCase().includes(lowerSearchTerm) ||
+      solicitud.prioridad.toLowerCase().includes(lowerSearchTerm) ||
+      solicitud.estado.toLowerCase().includes(lowerSearchTerm) ||
       (solicitud.tecnico_asignado &&
         `${solicitud.tecnico_asignado.nombre} ${solicitud.tecnico_asignado.apellido}`
           .toLowerCase()
