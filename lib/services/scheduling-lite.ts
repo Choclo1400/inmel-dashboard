@@ -58,26 +58,49 @@ export interface Booking {
 // ============================================================================
 
 export async function getTechnicians(): Promise<Technician[]> {
-  const { data, error } = await supabase
-    .from('technicians')
-    .select('*')
+  // Obtener usuarios con rol "Empleado" desde profiles
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('id, nombre, apellido, email, activo')
+    .eq('rol', 'Empleado')
     .eq('activo', true)
     .order('nombre')
 
-  if (error) {
-    throw new Error('Failed to fetch technicians')
+  if (profilesError) {
+    console.error('Error fetching profiles:', profilesError)
+    // Fallback a la tabla technicians
+    const { data, error } = await supabase
+      .from('technicians')
+      .select('*')
+      .eq('activo', true)
+      .order('nombre')
+
+    if (error) {
+      throw new Error('Failed to fetch technicians')
+    }
+
+    return (data || []).map((t: any) => ({
+      id: t.id,
+      user_id: t.user_id,
+      name: t.nombre ?? t.name ?? 'Técnico',
+      skills: t.skills ?? [],
+      is_active: t.activo ?? t.is_active ?? true,
+      estado: t.estado ?? 'Disponible',
+      created_at: t.created_at,
+      updated_at: t.updated_at,
+    }))
   }
 
-  // Mapear columnas de BD (español) a interfaz (inglés)
-  return (data || []).map((t: any) => ({
-    id: t.id,
-    user_id: t.user_id,
-    name: t.nombre ?? t.name ?? 'Técnico',
-    skills: t.skills ?? [],
-    is_active: t.activo ?? t.is_active ?? true,
-    estado: t.estado ?? 'Disponible',
-    created_at: t.created_at,
-    updated_at: t.updated_at,
+  // Mapear profiles a formato Technician
+  return (profiles || []).map((p: any) => ({
+    id: p.id,
+    user_id: p.id,
+    name: `${p.nombre} ${p.apellido}`.trim() || 'Técnico',
+    skills: [],
+    is_active: p.activo ?? true,
+    estado: 'Disponible' as TechnicianStatus,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   }))
 }
 
