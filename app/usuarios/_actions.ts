@@ -11,7 +11,7 @@ const userSchema = z.object({
   nombre: z.string().min(1),
   apellido: z.string().min(1),
   telefono: z.string().optional().nullable(),
-  rol: z.enum(["Administrador","Supervisor","Gestor","Técnico","Empleado"]),
+  rol: z.enum(["Administrador","Supervisor","Gestor","Técnico","Empleado","Empleador"]),
   activo: z.boolean().default(true),
 })
 
@@ -57,19 +57,29 @@ export async function createUserWithAuth(form: z.infer<typeof userSchema>): Prom
 
     const newId = created.user.id
 
-    const insert = await service.from("profiles").insert({
-      id: newId,
-      email: parsed.data.email,
-      nombre: parsed.data.nombre,
-      apellido: parsed.data.apellido,
-      telefono: parsed.data.telefono ?? null,
-      rol: parsed.data.rol,
-    }).select("id").single()
+    // NOTA: Ya NO insertamos manualmente en profiles porque el trigger 'on_auth_user_created'
+    // lo hace automáticamente. Esto evita el error "duplicate key value violates unique constraint"
 
-    if (insert.error) {
-      // rollback auth user on failure
+    // Esperar un momento para que el trigger se ejecute
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    // Verificar que el perfil se creó correctamente
+    const { data: profile, error: profileError } = await service
+      .from("profiles")
+      .select("id")
+      .eq("id", newId)
+      .single()
+
+    if (profileError || !profile) {
+      // Si el trigger falló, hacer rollback del usuario auth
       await service.auth.admin.deleteUser(newId)
-      return { data: null, error: { code: insert.error.code || "DB_INSERT_ERROR", message: insert.error.message } }
+      return {
+        data: null,
+        error: {
+          code: "PROFILE_CREATE_ERROR",
+          message: "El perfil no se creó automáticamente. Verifica que el trigger 'on_auth_user_created' esté configurado correctamente en Supabase."
+        }
+      }
     }
 
     await service.from("audit_logs").insert({
