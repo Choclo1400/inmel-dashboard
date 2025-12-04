@@ -38,11 +38,14 @@ export default function RegisterPage() {
     }
 
     try {
+      // Obtener la URL base (usa NEXT_PUBLIC_SITE_URL en producción, o window.location.origin en desarrollo)
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+
       const { error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
+          emailRedirectTo: `${baseUrl}/auth/callback`,
           data: {
             nombre: formData.nombre,
             apellido: formData.apellido,

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { roleHome } from "@/config/nav"
 import { Eye, EyeOff } from "lucide-react"
 
@@ -19,7 +19,16 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const router = useRouter()
+
+  // Verificar si viene de confirmación de correo
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('confirmed') === 'true') {
+      setSuccessMessage('¡Correo confirmado exitosamente! Ya puedes iniciar sesión.')
+    }
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -125,6 +134,9 @@ export default function LoginPage() {
                   </button>
                 </div>
               </div>
+              {successMessage && (
+                <div className="text-green-400 text-sm bg-green-900/20 p-3 rounded-md border border-green-800">{successMessage}</div>
+              )}
               {error && (
                 <div className="text-red-400 text-sm bg-red-900/20 p-3 rounded-md border border-red-800">{error}</div>
               )}
