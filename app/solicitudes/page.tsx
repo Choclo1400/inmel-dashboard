@@ -143,28 +143,10 @@ function SolicitudesPageClient() {
     }
   }
 
-  // Inicial: carga general; luego se refina según rol cuando perfil esté disponible
+  // Cargar todas las solicitudes (Empleado y Empleador ahora ven todas)
   useEffect(() => {
     fetchSolicitudes()
   }, [])
-
-  // Refetch específico para operador (Empleado) para limitar a sus propias solicitudes
-  useEffect(() => {
-    const refetchForOperator = async () => {
-      if (userRole === 'Empleado' && userId) {
-        setLoading(true)
-        try {
-          const ownData = await solicitudesService.getAll({ creado_por: userId })
-          setSolicitudes(ownData)
-        } catch (e) {
-          console.error('Error refetching own solicitudes for Empleado:', e)
-        } finally {
-          setLoading(false)
-        }
-      }
-    }
-    refetchForOperator()
-  }, [userRole, userId])
 
   // 🔥 REALTIME: Suscripción a cambios en la tabla solicitudes
   useEffect(() => {
