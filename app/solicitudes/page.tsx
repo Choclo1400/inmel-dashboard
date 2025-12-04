@@ -257,29 +257,24 @@ function SolicitudesPageClient() {
       return
     }
 
-    try {
-      setProcessing(true)
+    setProcessing(true)
 
+    try {
       if (approvalAction === "approve") {
         await solicitudesService.approve(selectedSolicitud.id, userId, approvalComments)
         toast({
           title: "Solicitud aprobada",
           description: `La solicitud ${selectedSolicitud.numero_solicitud} ha sido aprobada`,
         })
-        // 🔔 Notificación creada automáticamente por trigger notify_request_status_changes()
       } else {
         await solicitudesService.reject(selectedSolicitud.id, userId, approvalComments)
         toast({
           title: "Solicitud rechazada",
           description: `La solicitud ${selectedSolicitud.numero_solicitud} ha sido rechazada`,
         })
-        // 🔔 Notificación creada automáticamente por trigger notify_request_status_changes()
       }
 
-      // Reset y recargar
-      setShowApprovalDialog(false)
-      setSelectedSolicitud(null)
-      setApprovalComments("")
+      // Recargar solicitudes
       fetchSolicitudes()
     } catch (error) {
       console.error("Error processing approval:", error)
@@ -289,7 +284,11 @@ function SolicitudesPageClient() {
         variant: "destructive",
       })
     } finally {
+      // SIEMPRE cerrar el diálogo y resetear, incluso si hay error
       setProcessing(false)
+      setShowApprovalDialog(false)
+      setSelectedSolicitud(null)
+      setApprovalComments("")
     }
   }
 
