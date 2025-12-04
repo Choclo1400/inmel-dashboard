@@ -83,6 +83,7 @@ function SolicitudesPageClient() {
       } = await supabase.auth.getUser()
 
       console.log("👤 Usuario autenticado:", user?.email)
+      console.log("🔑 Rol desde usePermissions:", role)
 
       if (user) {
         setUserId(user.id)
@@ -314,10 +315,11 @@ function SolicitudesPageClient() {
   const canApprove = userRole === "Supervisor" || userRole === "Administrador"
 
   // Verificar si el usuario puede editar solicitudes (todos excepto Empleado y Empleador)
-  const canEdit = role !== 'technician' && role !== 'employer'
+  // Empleado → operator, Empleador → employer
+  const canEdit = role !== 'operator' && role !== 'employer'
 
   // Verificar si puede crear solicitudes (todos excepto Empleado y Empleador)
-  const canCreate = role !== 'technician' && role !== 'employer'
+  const canCreate = role !== 'operator' && role !== 'employer'
 
   if (loading) {
     return (
