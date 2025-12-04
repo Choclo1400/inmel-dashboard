@@ -91,17 +91,6 @@ export default function TecnicosPage() {
 
   return (
     <DashboardLayout title="Gestión de Técnicos" subtitle="Administración del personal técnico">
-      {/* Action Button */}
-      <div className="flex justify-end mb-6">
-        <Button 
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-          onClick={() => setShowCreateDialog(true)}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nuevo Técnico
-        </Button>
-      </div>
-
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
         <Card className="bg-slate-800 border-slate-700">
