@@ -361,32 +361,66 @@ export class ReportesService {
   }
 
   /**
-   * Exporta reporte a Excel (simulado)
+   * Exporta reporte a Excel - Usa datos de reportes_mensuales
    */
   async exportToExcel(filters?: ReportFilters): Promise<Blob> {
-    // In production, use a library like xlsx or exceljs
-    const data = await this.getMonthlyData(filters)
-    const csv = [
-      ["Mes", "Solicitudes", "Completadas", "Promedio (días)"],
-      ...data.map((row) => [row.month, row.solicitudes, row.completadas, row.promedio]),
-    ]
-      .map((row) => row.join(","))
-      .join("\n")
-
-    return new Blob([csv], { type: "text/csv;charset=utf-8;" })
+    // Usar datos de reportes_mensuales
+    return this.exportReporteMensualCSV()
   }
 
   /**
-   * Exporta reporte a PDF (simulado)
+   * Exporta reporte a PDF - Usa datos de reportes_mensuales
    */
   async exportToPDF(filters?: ReportFilters): Promise<Blob> {
-    // In production, use a library like jsPDF
-    const data = await this.getMonthlyData(filters)
-    const text = `Reporte INMEL Dashboard\n\nDatos mensuales:\n${data
-      .map((d) => `${d.month}: ${d.solicitudes} solicitudes, ${d.completadas} completadas`)
-      .join("\n")}`
+    const { data, error } = await this.supabase
+      .from("reportes_mensuales")
+      .select("*")
+      .order("mes", { ascending: false })
 
-    return new Blob([text], { type: "text/plain" })
+    if (error || !data || data.length === 0) {
+      return new Blob(["No hay datos de reportes disponibles"], { type: "text/plain" })
+    }
+
+    // Generar reporte en texto
+    const lines = [
+      "═══════════════════════════════════════════════════════════════",
+      "                    REPORTE INMEL DASHBOARD",
+      "═══════════════════════════════════════════════════════════════",
+      "",
+      `Fecha de generación: ${new Date().toLocaleDateString("es-CL")}`,
+      "",
+      "───────────────────────────────────────────────────────────────",
+      "                     RESUMEN POR PERÍODO",
+      "───────────────────────────────────────────────────────────────",
+      ""
+    ]
+
+    data.forEach(r => {
+      lines.push(`📅 ${r.mes_nombre} ${r.año}`)
+      lines.push(`   Total Solicitudes: ${r.total_solicitudes}`)
+      lines.push(`   ├── Pendientes: ${r.pendientes}`)
+      lines.push(`   ├── Aprobadas: ${r.aprobadas}`)
+      lines.push(`   ├── Programadas: ${r.programadas}`)
+      lines.push(`   ├── En Progreso: ${r.en_progreso}`)
+      lines.push(`   ├── Completadas: ${r.completadas}`)
+      lines.push(`   └── Rechazadas: ${r.rechazadas}`)
+      lines.push(``)
+      lines.push(`   📊 Métricas:`)
+      lines.push(`   ├── Eficiencia General: ${r.eficiencia_general}%`)
+      lines.push(`   ├── Tiempo Promedio Respuesta: ${r.tiempo_promedio_respuesta} días`)
+      lines.push(`   ├── Tasa Duplicidad: ${r.tasa_duplicidad}%`)
+      lines.push(`   └── Solicitudes Retrasadas: ${r.solicitudes_retrasadas}`)
+      lines.push("")
+      lines.push("───────────────────────────────────────────────────────────────")
+      lines.push("")
+    })
+
+    lines.push("")
+    lines.push("═══════════════════════════════════════════════════════════════")
+    lines.push("                    FIN DEL REPORTE")
+    lines.push("═══════════════════════════════════════════════════════════════")
+
+    return new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" })
   }
 
   // ============================================================================
@@ -437,27 +471,27 @@ export class ReportesService {
 
     // Calcular tendencias comparando con mes anterior
     const avgTimeTrend = previous 
-      ? current.tiempo_promedio_respuesta - previous.tiempo_promedio_respuesta 
+      ? Number(current.tiempo_promedio_respuesta) - Number(previous.tiempo_promedio_respuesta) 
       : 0
     const duplicityTrend = previous 
-      ? current.tasa_duplicidad - previous.tasa_duplicidad 
+      ? Number(current.tasa_duplicidad) - Number(previous.tasa_duplicidad) 
       : 0
     const delayedTrend = previous 
-      ? current.solicitudes_retrasadas - previous.solicitudes_retrasadas 
+      ? Number(current.solicitudes_retrasadas) - Number(previous.solicitudes_retrasadas) 
       : 0
     const efficiencyTrend = previous 
-      ? current.eficiencia_general - previous.eficiencia_general 
+      ? Number(current.eficiencia_general) - Number(previous.eficiencia_general) 
       : 0
 
     return {
-      avgResponseTime: current.tiempo_promedio_respuesta,
-      avgResponseTimeTrend: avgTimeTrend,
-      duplicityRate: current.tasa_duplicidad,
-      duplicityRateTrend: duplicityTrend,
-      delayedRequests: current.solicitudes_retrasadas,
+      avgResponseTime: Number(current.tiempo_promedio_respuesta) || 0,
+      avgResponseTimeTrend: Math.round(avgTimeTrend * 10) / 10,
+      duplicityRate: Number(current.tasa_duplicidad) || 0,
+      duplicityRateTrend: Math.round(duplicityTrend * 10) / 10,
+      delayedRequests: Number(current.solicitudes_retrasadas) || 0,
       delayedRequestsTrend: delayedTrend,
-      generalEfficiency: current.eficiencia_general,
-      generalEfficiencyTrend: efficiencyTrend,
+      generalEfficiency: Number(current.eficiencia_general) || 0,
+      generalEfficiencyTrend: Math.round(efficiencyTrend * 10) / 10,
     }
   }
 
@@ -465,21 +499,25 @@ export class ReportesService {
    * Obtiene datos mensuales desde la tabla de reportes
    */
   async getMonthlyDataFromReportes(): Promise<MonthlyData[]> {
+    console.log("📅 Consultando datos mensuales...")
     const { data, error } = await this.supabase
       .from("reportes_mensuales")
       .select("*")
       .order("mes", { ascending: true })
       .limit(12)
 
+    console.log("📅 Datos mensuales:", data)
+
     if (error || !data) {
+      console.log("❌ Error en datos mensuales:", error)
       return []
     }
 
     return data.map(r => ({
       month: r.mes_nombre,
-      solicitudes: r.total_solicitudes,
-      completadas: r.completadas,
-      promedio: r.tiempo_promedio_respuesta
+      solicitudes: Number(r.total_solicitudes) || 0,
+      completadas: Number(r.completadas) || 0,
+      promedio: Number(r.tiempo_promedio_respuesta) || 0
     }))
   }
 
@@ -487,6 +525,7 @@ export class ReportesService {
    * Obtiene distribución por estado desde reportes
    */
   async getStatusDataFromReportes(): Promise<StatusData[]> {
+    console.log("📊 Consultando distribución por estado...")
     const { data, error } = await this.supabase
       .from("reportes_mensuales")
       .select("*")
@@ -494,17 +533,20 @@ export class ReportesService {
       .limit(1)
       .single()
 
+    console.log("📊 Status data:", data)
+
     if (error || !data) {
+      console.log("❌ Error en status, usando fallback:", error)
       return this.getStatusDistribution()
     }
 
     return [
-      { name: "Pendiente", value: data.pendientes, color: "#f59e0b" },
-      { name: "Aprobada", value: data.aprobadas, color: "#06b6d4" },
-      { name: "Programada", value: data.programadas, color: "#8b5cf6" },
-      { name: "En Progreso", value: data.en_progreso, color: "#3b82f6" },
-      { name: "Completada", value: data.completadas, color: "#22c55e" },
-      { name: "Rechazada", value: data.rechazadas, color: "#ef4444" },
+      { name: "Pendiente", value: Number(data.pendientes) || 0, color: "#f59e0b" },
+      { name: "Aprobada", value: Number(data.aprobadas) || 0, color: "#06b6d4" },
+      { name: "Programada", value: Number(data.programadas) || 0, color: "#8b5cf6" },
+      { name: "En Progreso", value: Number(data.en_progreso) || 0, color: "#3b82f6" },
+      { name: "Completada", value: Number(data.completadas) || 0, color: "#22c55e" },
+      { name: "Rechazada", value: Number(data.rechazadas) || 0, color: "#ef4444" },
     ]
   }
 
