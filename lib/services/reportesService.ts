@@ -440,6 +440,44 @@ export class ReportesService {
   // ============================================================================
 
   /**
+   * Calcula el rango de fechas según el período seleccionado
+   */
+  private getDateRangeForPeriod(period: string): { startDate: Date; endDate: Date; limit: number } {
+    const now = new Date()
+    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0) // Fin del mes actual
+    let startDate: Date
+    let limit: number
+
+    switch (period) {
+      case "week":
+        // Última semana - mostrar datos del mes actual
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+        limit = 1
+        break
+      case "month":
+        // Último mes
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+        limit = 2
+        break
+      case "quarter":
+        // Último trimestre (3 meses)
+        startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1)
+        limit = 3
+        break
+      case "year":
+        // Último año (12 meses)
+        startDate = new Date(now.getFullYear() - 1, now.getMonth() + 1, 1)
+        limit = 12
+        break
+      default:
+        startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1)
+        limit = 3
+    }
+
+    return { startDate, endDate, limit }
+  }
+
+  /**
    * Obtiene todos los reportes mensuales almacenados
    */
   async getReportesMensuales(): Promise<any[]> {
@@ -457,15 +495,18 @@ export class ReportesService {
   }
 
   /**
-   * Obtiene KPIs desde la tabla de reportes mensuales
+   * Obtiene KPIs desde la tabla de reportes mensuales con filtro de período
    */
-  async getKPIsFromReportes(): Promise<KPIData> {
-    console.log("🔍 Consultando reportes_mensuales...")
+  async getKPIsFromReportes(period: string = "month"): Promise<KPIData> {
+    console.log("🔍 Consultando reportes_mensuales para período:", period)
+    const { startDate, limit } = this.getDateRangeForPeriod(period)
+    
     const { data, error } = await this.supabase
       .from("reportes_mensuales")
       .select("*")
+      .gte("mes", startDate.toISOString().split('T')[0])
       .order("mes", { ascending: false })
-      .limit(2)
+      .limit(limit)
 
     console.log("📊 Datos recibidos:", data)
     console.log("❌ Error:", error)
@@ -508,15 +549,18 @@ export class ReportesService {
   }
 
   /**
-   * Obtiene datos mensuales desde la tabla de reportes
+   * Obtiene datos mensuales desde la tabla de reportes con filtro de período
    */
-  async getMonthlyDataFromReportes(): Promise<MonthlyData[]> {
-    console.log("📅 Consultando datos mensuales...")
+  async getMonthlyDataFromReportes(period: string = "quarter"): Promise<MonthlyData[]> {
+    console.log("📅 Consultando datos mensuales para período:", period)
+    const { startDate, limit } = this.getDateRangeForPeriod(period)
+    
     const { data, error } = await this.supabase
       .from("reportes_mensuales")
       .select("*")
+      .gte("mes", startDate.toISOString().split('T')[0])
       .order("mes", { ascending: true })
-      .limit(12)
+      .limit(limit)
 
     console.log("📅 Datos mensuales:", data)
 
@@ -526,7 +570,7 @@ export class ReportesService {
     }
 
     return data.map(r => ({
-      month: r.mes_nombre,
+      month: `${r.mes_nombre} ${r.año}`,
       solicitudes: Number(r.total_solicitudes) || 0,
       completadas: Number(r.completadas) || 0,
       promedio: Number(r.tiempo_promedio_respuesta) || 0
@@ -534,31 +578,47 @@ export class ReportesService {
   }
 
   /**
-   * Obtiene distribución por estado desde reportes
+   * Obtiene distribución por estado desde reportes con filtro de período
+   * Agrega los valores de todos los meses en el período seleccionado
    */
-  async getStatusDataFromReportes(): Promise<StatusData[]> {
-    console.log("📊 Consultando distribución por estado...")
+  async getStatusDataFromReportes(period: string = "month"): Promise<StatusData[]> {
+    console.log("📊 Consultando distribución por estado para período:", period)
+    const { startDate, limit } = this.getDateRangeForPeriod(period)
+    
     const { data, error } = await this.supabase
       .from("reportes_mensuales")
       .select("*")
+      .gte("mes", startDate.toISOString().split('T')[0])
       .order("mes", { ascending: false })
-      .limit(1)
-      .single()
+      .limit(limit)
 
     console.log("📊 Status data:", data)
 
-    if (error || !data) {
+    if (error || !data || data.length === 0) {
       console.log("❌ Error en status, usando fallback:", error)
       return this.getStatusDistribution()
     }
 
+    // Sumar valores de todos los meses en el período
+    const totals = data.reduce((acc, r) => ({
+      pendientes: acc.pendientes + (Number(r.pendientes) || 0),
+      aprobadas: acc.aprobadas + (Number(r.aprobadas) || 0),
+      programadas: acc.programadas + (Number(r.programadas) || 0),
+      en_progreso: acc.en_progreso + (Number(r.en_progreso) || 0),
+      completadas: acc.completadas + (Number(r.completadas) || 0),
+      rechazadas: acc.rechazadas + (Number(r.rechazadas) || 0),
+    }), {
+      pendientes: 0, aprobadas: 0, programadas: 0, 
+      en_progreso: 0, completadas: 0, rechazadas: 0
+    })
+
     return [
-      { name: "Pendiente", value: Number(data.pendientes) || 0, color: "#f59e0b" },
-      { name: "Aprobada", value: Number(data.aprobadas) || 0, color: "#06b6d4" },
-      { name: "Programada", value: Number(data.programadas) || 0, color: "#8b5cf6" },
-      { name: "En Progreso", value: Number(data.en_progreso) || 0, color: "#3b82f6" },
-      { name: "Completada", value: Number(data.completadas) || 0, color: "#22c55e" },
-      { name: "Rechazada", value: Number(data.rechazadas) || 0, color: "#ef4444" },
+      { name: "Pendiente", value: totals.pendientes, color: "#f59e0b" },
+      { name: "Aprobada", value: totals.aprobadas, color: "#06b6d4" },
+      { name: "Programada", value: totals.programadas, color: "#8b5cf6" },
+      { name: "En Progreso", value: totals.en_progreso, color: "#3b82f6" },
+      { name: "Completada", value: totals.completadas, color: "#22c55e" },
+      { name: "Rechazada", value: totals.rechazadas, color: "#ef4444" },
     ]
   }
 

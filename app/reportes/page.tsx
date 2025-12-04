@@ -52,11 +52,11 @@ export default function ReportesPage() {
     try {
       setLoading(true)
 
-      // Cargar datos desde la tabla reportes_mensuales
+      // Cargar datos desde la tabla reportes_mensuales con el período seleccionado
       const [kpis, monthly, status, types, team, weekly] = await Promise.all([
-        reportesService.getKPIsFromReportes(),
-        reportesService.getMonthlyDataFromReportes(),
-        reportesService.getStatusDataFromReportes(),
+        reportesService.getKPIsFromReportes(selectedPeriod),
+        reportesService.getMonthlyDataFromReportes(selectedPeriod),
+        reportesService.getStatusDataFromReportes(selectedPeriod),
         reportesService.getTypeDistribution(),
         reportesService.getTeamPerformance(),
         reportesService.getWeeklyTrend(),
@@ -82,7 +82,7 @@ export default function ReportesPage() {
 
   useEffect(() => {
     loadReportData()
-  }, []) // Solo cargar una vez al montar el componente
+  }, [selectedPeriod]) // Recargar cuando cambie el período
 
   const handleExport = async (format: "pdf" | "excel") => {
     try {
