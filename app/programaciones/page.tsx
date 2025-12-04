@@ -34,6 +34,7 @@ export default function ProgramacionesPage() {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [preSelectedSolicitud, setPreSelectedSolicitud] = useState<Solicitud | null>(null)
   const [highlightedBookingId, setHighlightedBookingId] = useState<string | null>(null)
+  const [dismissedRequestId, setDismissedRequestId] = useState<string | null>(null) // Track dismissed request
   const { toast } = useToast()
   const searchParams = useSearchParams()
 
@@ -56,8 +57,8 @@ export default function ProgramacionesPage() {
       setActiveTab('calendario')
     }
 
-    // Si hay una solicitud pre-seleccionada, cargarla
-    if (requestParam) {
+    // Si hay una solicitud pre-seleccionada, cargarla (solo si no fue descartada previamente)
+    if (requestParam && requestParam !== dismissedRequestId) {
       console.log('📋 [Programaciones] Cargando solicitud pre-seleccionada:', requestParam)
 
       const loadPreSelectedSolicitud = async () => {
@@ -86,7 +87,7 @@ export default function ProgramacionesPage() {
 
       loadPreSelectedSolicitud()
     }
-  }, [searchParams, toast])
+  }, [searchParams, toast, dismissedRequestId])
 
   // Limpiar solicitud pre-seleccionada después de usarla
   const handleBookingCreatedFromPreSelected = () => {
@@ -99,6 +100,11 @@ export default function ProgramacionesPage() {
   // Limpiar solicitud pre-seleccionada cuando el usuario cierra el diálogo sin programar
   const handlePreSelectedCleared = () => {
     console.log('🚫 [Programaciones] Usuario cerró el diálogo sin programar, limpiando estado...')
+    // Guardar el ID para no volver a cargarla
+    const requestId = searchParams.get('request')
+    if (requestId) {
+      setDismissedRequestId(requestId)
+    }
     setPreSelectedSolicitud(null)
     // Limpiar URL parameters
     window.history.replaceState({}, '', '/programaciones')
