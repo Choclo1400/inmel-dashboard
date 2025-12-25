@@ -25,6 +25,11 @@ jobs:
     # Set timeout to prevent hanging workflows
     timeout-minutes: 30
 
+    # Add permissions for the GITHUB_TOKEN
+    permissions:
+      contents: write
+      actions: read
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

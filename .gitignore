@@ -38,7 +38,6 @@ next-env.d.ts
 # cache
 .cache
 .DS_Store
-*.local
 
 # backups - IMPORTANT: DO NOT ignore backups directory
 # Backups are stored in the repo for disaster recovery
@@ -47,3 +46,13 @@ next-env.d.ts
 !backups/**/*.json
 !backups/**/*.md
 !backups/**/*.tar.gz
+
+# temporary files
+*.tmp
+*.backup
+*.old
+nul
+
+# lock files - use npm only
+pnpm-lock.yaml
+yarn.lock

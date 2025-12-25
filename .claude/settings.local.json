@@ -12,7 +12,14 @@
       "Bash(git log:*)",
       "Bash(find:*)",
       "Bash(cat:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(dir:*)",
+      "Bash(npm outdated:*)",
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm update:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []
