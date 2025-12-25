@@ -43,18 +43,22 @@ jobs:
           version: latest
 
       - name: Create backup directory
+        id: backup-info
         run: |
-          mkdir -p backups/$(date +%Y-%m-%d)
-          echo "BACKUP_DIR=backups/$(date +%Y-%m-%d)" >> $GITHUB_ENV
-          echo "BACKUP_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
-          echo "BACKUP_TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)" >> $GITHUB_ENV
+          BACKUP_DIR="backups/$(date +%Y-%m-%d)"
+          BACKUP_DATE="$(date +%Y-%m-%d)"
+          BACKUP_TIMESTAMP="$(date +%Y-%m-%d_%H-%M-%S)"
+          mkdir -p "$BACKUP_DIR"
+          echo "BACKUP_DIR=$BACKUP_DIR" >> $GITHUB_OUTPUT
+          echo "BACKUP_DATE=$BACKUP_DATE" >> $GITHUB_OUTPUT
+          echo "BACKUP_TIMESTAMP=$BACKUP_TIMESTAMP" >> $GITHUB_OUTPUT
 
       - name: Backup Database Roles
         run: |
           supabase db dump \
             --db-url "${{ secrets.SUPABASE_DB_URL }}" \
             --role-only \
-            -f "${{ env.BACKUP_DIR }}/roles.sql"
+            -f "${{ steps.backup-info.outputs.BACKUP_DIR }}/roles.sql"
         continue-on-error: true
 
       - name: Backup Database Schema
@@ -63,7 +67,7 @@ jobs:
             --db-url "${{ secrets.SUPABASE_DB_URL }}" \
             --schema public \
             --data-only=false \
-            -f "${{ env.BACKUP_DIR }}/schema.sql"
+            -f "${{ steps.backup-info.outputs.BACKUP_DIR }}/schema.sql"
 
       - name: Backup Database Data
         run: |
@@ -71,14 +75,14 @@ jobs:
             --db-url "${{ secrets.SUPABASE_DB_URL }}" \
             --schema public \
             --data-only \
-            -f "${{ env.BACKUP_DIR }}/data.sql"
+            -f "${{ steps.backup-info.outputs.BACKUP_DIR }}/data.sql"
 
       - name: Create backup metadata
         run: |
-          cat > "${{ env.BACKUP_DIR }}/backup-info.json" <<EOF
+          cat > "${{ steps.backup-info.outputs.BACKUP_DIR }}/backup-info.json" <<EOF
           {
-            "backup_date": "${{ env.BACKUP_DATE }}",
-            "backup_timestamp": "${{ env.BACKUP_TIMESTAMP }}",
+            "backup_date": "${{ steps.backup-info.outputs.BACKUP_DATE }}",
+            "backup_timestamp": "${{ steps.backup-info.outputs.BACKUP_TIMESTAMP }}",
             "database_url": "https://rurggkctnsrvwodcpuvt.supabase.co",
             "workflow_run_id": "${{ github.run_id }}",
             "workflow_run_number": "${{ github.run_number }}",
@@ -102,11 +106,11 @@ jobs:
 
       - name: Create README for backup
         run: |
-          cat > "${{ env.BACKUP_DIR }}/README.md" <<'EOF'
-          # Database Backup - ${{ env.BACKUP_DATE }}
+          cat > "${{ steps.backup-info.outputs.BACKUP_DIR }}/README.md" <<'EOF'
+          # Database Backup - ${{ steps.backup-info.outputs.BACKUP_DATE }}
 
           ## Backup Information
-          - **Date:** ${{ env.BACKUP_TIMESTAMP }}
+          - **Date:** ${{ steps.backup-info.outputs.BACKUP_TIMESTAMP }}
           - **Database:** rurggkctnsrvwodcpuvt.supabase.co
           - **Triggered by:** ${{ github.event_name }}
           - **Workflow Run:** [#${{ github.run_number }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
@@ -143,8 +147,8 @@ jobs:
       - name: Compress backup files
         run: |
           cd backups
-          tar -czf "${{ env.BACKUP_DATE }}.tar.gz" "${{ env.BACKUP_DATE }}"
-          echo "Backup compressed: $(ls -lh ${{ env.BACKUP_DATE }}.tar.gz)"
+          tar -czf "${{ steps.backup-info.outputs.BACKUP_DATE }}.tar.gz" "${{ steps.backup-info.outputs.BACKUP_DATE }}"
+          echo "Backup compressed: $(ls -lh ${{ steps.backup-info.outputs.BACKUP_DATE }}.tar.gz)"
 
       - name: Configure Git
         run: |
@@ -157,14 +161,14 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: automated database backup - ${{ env.BACKUP_TIMESTAMP }}
+            git commit -m "chore: automated database backup - ${{ steps.backup-info.outputs.BACKUP_TIMESTAMP }}
 
             Backup details:
-            - Date: ${{ env.BACKUP_DATE }}
-            - Timestamp: ${{ env.BACKUP_TIMESTAMP }}
+            - Date: ${{ steps.backup-info.outputs.BACKUP_DATE }}
+            - Timestamp: ${{ steps.backup-info.outputs.BACKUP_TIMESTAMP }}
             - Triggered by: ${{ github.event_name }}
             - Files: roles.sql, schema.sql, data.sql
-            - Tables: profiles, solicitudes, clients, technicians, working_hours, bookings, time_off, services, comentarios, notifications
+            - Tables: profiles, solicitudes, clients, technicians, working_hours, bookups, time_off, services, comentarios, notifications
 
             🤖 Automated backup via GitHub Actions
             Workflow: ${{ github.workflow }}
@@ -189,13 +193,13 @@ jobs:
       - name: Upload backup artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: database-backup-${{ env.BACKUP_DATE }}
-          path: backups/${{ env.BACKUP_DATE }}.tar.gz
+          name: database-backup-${{ steps.backup-info.outputs.BACKUP_DATE }}
+          path: backups/${{ steps.backup-info.outputs.BACKUP_DATE }}.tar.gz
           retention-days: 90
 
       - name: Notify on failure
         if: failure()
         run: |
           echo "::error::Database backup failed!"
-          echo "Backup Date: ${{ env.BACKUP_DATE }}"
+          echo "Backup Date: ${{ steps.backup-info.outputs.BACKUP_DATE }}"
           echo "Workflow Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"

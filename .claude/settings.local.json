@@ -19,7 +19,8 @@
       "Bash(mv:*)",
       "Bash(npm audit:*)",
       "Bash(npm update:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []
