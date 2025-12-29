@@ -37,11 +37,6 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
       - name: Create backup directory
         id: backup-info
         run: |
@@ -53,28 +48,47 @@ jobs:
           echo "BACKUP_DATE=$BACKUP_DATE" >> $GITHUB_OUTPUT
           echo "BACKUP_TIMESTAMP=$BACKUP_TIMESTAMP" >> $GITHUB_OUTPUT
 
-      - name: Backup Database Roles
+      - name: Install PostgreSQL Client
         run: |
-          supabase db dump \
-            --db-url "${{ secrets.SUPABASE_DB_URL }}" \
-            --role-only \
-            -f "${{ steps.backup-info.outputs.BACKUP_DIR }}/roles.sql"
-        continue-on-error: true
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
 
-      - name: Backup Database Schema
+      - name: Backup Database Schema and Data
+        env:
+          PGPASSWORD: Chucrut1400#
         run: |
-          supabase db dump \
-            --db-url "${{ secrets.SUPABASE_DB_URL }}" \
-            --schema public \
-            --data-only=false \
+          pg_dump \
+            -h db.rurggkctnsrvwodcpuvt.supabase.co \
+            -p 5432 \
+            -U postgres \
+            -d postgres \
+            --schema=public \
+            --no-owner \
+            --no-acl \
+            -f "${{ steps.backup-info.outputs.BACKUP_DIR }}/full_backup.sql"
+
+          # Create schema-only backup
+          pg_dump \
+            -h db.rurggkctnsrvwodcpuvt.supabase.co \
+            -p 5432 \
+            -U postgres \
+            -d postgres \
+            --schema=public \
+            --schema-only \
+            --no-owner \
+            --no-acl \
             -f "${{ steps.backup-info.outputs.BACKUP_DIR }}/schema.sql"
 
-      - name: Backup Database Data
-        run: |
-          supabase db dump \
-            --db-url "${{ secrets.SUPABASE_DB_URL }}" \
-            --schema public \
+          # Create data-only backup
+          pg_dump \
+            -h db.rurggkctnsrvwodcpuvt.supabase.co \
+            -p 5432 \
+            -U postgres \
+            -d postgres \
+            --schema=public \
             --data-only \
+            --no-owner \
+            --no-acl \
             -f "${{ steps.backup-info.outputs.BACKUP_DIR }}/data.sql"
 
       - name: Create backup metadata
@@ -116,8 +130,8 @@ jobs:
           - **Workflow Run:** [#${{ github.run_number }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
           ## Files Included
-          - `roles.sql` - Database roles and permissions
-          - `schema.sql` - Table structures, RLS policies, triggers, functions
+          - `full_backup.sql` - Complete database backup (schema + data)
+          - `schema.sql` - Table structures, indexes, constraints, RLS policies, triggers, functions
           - `data.sql` - All table data
           - `backup-info.json` - Metadata about this backup
 
@@ -125,11 +139,16 @@ jobs:
 
           See the main [RESTORE.md](../../RESTORE.md) guide in the backups directory.
 
-          ### Quick Restore Steps
-          1. Install Supabase CLI: `npm install -g supabase`
-          2. Restore roles: `psql $DB_URL -f roles.sql`
-          3. Restore schema: `psql $DB_URL -f schema.sql`
-          4. Restore data: `psql $DB_URL -f data.sql`
+          ### Quick Restore - Full Database
+          ```bash
+          psql -h db.rurggkctnsrvwodcpuvt.supabase.co -p 5432 -U postgres -d postgres -f full_backup.sql
+          ```
+
+          ### Restore Schema and Data Separately
+          ```bash
+          psql -h db.rurggkctnsrvwodcpuvt.supabase.co -p 5432 -U postgres -d postgres -f schema.sql
+          psql -h db.rurggkctnsrvwodcpuvt.supabase.co -p 5432 -U postgres -d postgres -f data.sql
+          ```
 
           ## Tables Backed Up
           - profiles
@@ -167,8 +186,8 @@ jobs:
             - Date: ${{ steps.backup-info.outputs.BACKUP_DATE }}
             - Timestamp: ${{ steps.backup-info.outputs.BACKUP_TIMESTAMP }}
             - Triggered by: ${{ github.event_name }}
-            - Files: roles.sql, schema.sql, data.sql
-            - Tables: profiles, solicitudes, clients, technicians, working_hours, bookups, time_off, services, comentarios, notifications
+            - Files: full_backup.sql, schema.sql, data.sql
+            - Tables: profiles, solicitudes, clients, technicians, working_hours, bookings, time_off, services, comentarios, notifications
 
             🤖 Automated backup via GitHub Actions
             Workflow: ${{ github.workflow }}
